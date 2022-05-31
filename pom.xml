@@ -19,8 +19,8 @@
 		<java.version>17</java.version>
 		<spring-boot-admin.version>2.6.6</spring-boot-admin.version>
 		<docker.image.name>ms-spring-boot-admin</docker.image.name>
-		<published.container.port.test>00000</published.container.port.test>
-		<published.container.port.production>00000</published.container.port.production>
+		<published.container.port.test>1337</published.container.port.test>
+		<published.container.port.production>1337</published.container.port.production>
 	</properties>
 
 	<dependencies>
