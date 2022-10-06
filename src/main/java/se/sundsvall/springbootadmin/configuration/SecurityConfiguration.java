@@ -37,7 +37,7 @@ public class SecurityConfiguration {
 		successHandler2.setDefaultTargetUrl(adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
-			.filterSecurityInterceptorOncePerRequest(false)
+			.filterSecurityInterceptorOncePerRequest(true)
 			.antMatchers(adminServer.path("/login")).permitAll()
 			.antMatchers(adminServer.path("/assets/**")).permitAll()
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
@@ -46,13 +46,12 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/journal")).permitAll()
 			.antMatchers(GET, adminServer.path("/applications/**")).permitAll()
 			.antMatchers(POST, adminServer.path("/instances")).permitAll()
-			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
-			.antMatchers(adminServer.path("/instances/**/details")).permitAll()
-			.antMatchers(adminServer.path("/instances/**/actuator/info")).permitAll()
-			.antMatchers(adminServer.path("/instances/**/actuator/health")).permitAll()
-			.antMatchers(adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
-			.antMatchers(adminServer.path("/instances/events")).permitAll()
-			.anyRequest().authenticated().filterSecurityInterceptorOncePerRequest(true))
+			.antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
+			.antMatchers(GET, adminServer.path("/instances/**/actuator/info")).permitAll()
+			.antMatchers(GET, adminServer.path("/instances/**/actuator/health")).permitAll()
+			.antMatchers(GET, adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
+			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
+			.anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
 			.exceptionHandling().accessDeniedHandler(accessDeniedHandler).and()
