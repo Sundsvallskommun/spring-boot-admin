@@ -40,6 +40,8 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/login")).permitAll()
 			.antMatchers(this.adminServer.path("/assets/**")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
+			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
+			.antMatchers(this.adminServer.path("/actuator/health")).permitAll()
 			.antMatchers(HttpMethod.GET.toString(), this.adminServer.path("/applications/**/")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
