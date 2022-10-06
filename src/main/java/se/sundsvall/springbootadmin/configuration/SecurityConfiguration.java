@@ -43,6 +43,7 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
 			.antMatchers(this.adminServer.path("/applications")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
+			.antMatchers(this.adminServer.path("/instances")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/*/details")).permitAll()
 			.antMatchers(this.adminServer.path("/login")).permitAll().anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
