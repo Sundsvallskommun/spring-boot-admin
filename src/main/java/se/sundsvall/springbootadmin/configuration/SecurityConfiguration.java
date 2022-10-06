@@ -36,14 +36,14 @@ public class SecurityConfiguration {
 		successHandler.setTargetUrlParameter("redirectTo");
 		successHandler.setDefaultTargetUrl(this.adminServer.getContextPath() + "/wallboard");
 
-		http.authorizeRequests((authorizeRequests) -> authorizeRequests
+		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			.antMatchers(this.adminServer.path("/assets/**")).permitAll()
 			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
 			.antMatchers(this.adminServer.path("/actuator/health")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
 			.antMatchers(this.adminServer.path("/applications")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/*/details")).permitAll()
 			.antMatchers(this.adminServer.path("/login")).permitAll().anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
 				.loginPage(this.adminServer.path("/login"))
