@@ -37,11 +37,11 @@ public class SecurityConfiguration {
 		successHandler.setDefaultTargetUrl(this.adminServer.getContextPath() + "/wallboard");
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
-			.antMatchers(this.adminServer.path("/instances/*/metrics")).authenticated()
-			.antMatchers(this.adminServer.path("/instances/*/env")).authenticated()
-			.antMatchers(this.adminServer.path("/instances/*/beans")).authenticated()
-			.antMatchers(this.adminServer.path("/instances/*/configprops")).authenticated()
-			.antMatchers(this.adminServer.path("/instances/*/scheduledtasks")).authenticated().anyRequest().anonymous())
+			.antMatchers(this.adminServer.path("/instances/**/metrics")).authenticated()
+			.antMatchers(this.adminServer.path("/instances/**/env")).authenticated()
+			.antMatchers(this.adminServer.path("/instances/**/beans")).authenticated()
+			.antMatchers(this.adminServer.path("/instances/**/configprops")).authenticated()
+			.antMatchers(this.adminServer.path("/instances/**/scheduledtasks")).authenticated().anyRequest().anonymous())
 			.formLogin(formLogin -> formLogin
 				.loginPage(this.adminServer.path("/login"))
 				.successHandler(successHandler)
