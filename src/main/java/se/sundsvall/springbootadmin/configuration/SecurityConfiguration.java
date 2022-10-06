@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -59,7 +60,7 @@ public class SecurityConfiguration {
 				.loginPage(this.adminServer.path("/login"))
 				.successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedPage(this.adminServer.path("/assets/content/empty.json")).and()
+			.exceptionHandling().accessDeniedHandler(accessDeniedHandler()).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
 					new AntPathRequestMatcher(this.adminServer.path("/instances"),
@@ -70,6 +71,11 @@ public class SecurityConfiguration {
 			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds(1209600));
 
 		return http.build();
+	}
+
+	@Bean
+	public AccessDeniedHandler accessDeniedHandler() {
+		return new CustomAccessDeniedHandler();
 	}
 
 	@Bean
