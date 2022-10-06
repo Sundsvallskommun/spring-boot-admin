@@ -39,9 +39,9 @@ public class SecurityConfiguration {
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-		SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
-		successHandler.setTargetUrlParameter("redirectTo");
-		successHandler.setDefaultTargetUrl(this.adminServer.path("/"));
+		SavedRequestAwareAuthenticationSuccessHandler successHandler2 = new SavedRequestAwareAuthenticationSuccessHandler();
+		successHandler2.setTargetUrlParameter("redirectTo");
+		successHandler2.setDefaultTargetUrl(this.adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			.antMatchers(this.adminServer.path("/login")).permitAll()
@@ -59,9 +59,9 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
-			.formLogin(formLogin -> formLogin.loginPage(this.adminServer.path("/login")).successHandler(successHandler))
+			.formLogin(formLogin -> formLogin.loginPage(this.adminServer.path("/login")).defaultSuccessUrl(this.adminServer.path("/")))
 			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedPage(this.adminServer.path("/assets/content/empty.json")).accessDeniedHandler(accessDeniedHandler()).and()
+			.exceptionHandling().accessDeniedHandler(accessDeniedHandler()).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
 					new AntPathRequestMatcher(this.adminServer.path("/instances"),
