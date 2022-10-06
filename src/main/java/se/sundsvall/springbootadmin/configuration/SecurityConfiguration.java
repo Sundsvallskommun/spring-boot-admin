@@ -2,6 +2,7 @@ package se.sundsvall.springbootadmin.configuration;
 
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -13,10 +14,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -30,7 +29,7 @@ public class SecurityConfiguration {
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
 
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, AccessDeniedHandler accessDeniedHandler) throws Exception {
+	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
 
 		SavedRequestAwareAuthenticationSuccessHandler successHandler2 = new SavedRequestAwareAuthenticationSuccessHandler();
 		successHandler2.setTargetUrlParameter("redirectTo");
@@ -52,15 +51,12 @@ public class SecurityConfiguration {
 			.antMatchers(GET, adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
-			.formLogin(formLogin -> formLogin.defaultSuccessUrl(adminServer.path("/wallboard")))
+			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedHandler(accessDeniedHandler).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
-					new AntPathRequestMatcher(adminServer.path("/instances"),
-						HttpMethod.POST.toString()),
-					new AntPathRequestMatcher(adminServer.path("/instances/*"),
-						HttpMethod.DELETE.toString()),
+					new AntPathRequestMatcher(adminServer.path("/instances"), HttpMethod.POST.toString()),
+					new AntPathRequestMatcher(adminServer.path("/instances/*"), HttpMethod.DELETE.toString()),
 					new AntPathRequestMatcher(adminServer.path("/actuator/**"))))
 			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
 
@@ -68,15 +64,9 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	public AccessDeniedHandler accessDeniedHandler() {
-		return new CustomAccessDeniedHandler();
-	}
-
-	@Bean
 	public UserDetailsService userDetailsService(AdminUser adminUser) {
 
-		final var passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
-
+		final var passwordEncoder = createDelegatingPasswordEncoder();
 		final var admin = User.withUsername(adminUser.name())
 			.password(adminUser.password())
 			.roles("ADMIN")
