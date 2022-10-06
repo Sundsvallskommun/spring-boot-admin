@@ -1,6 +1,7 @@
 package se.sundsvall.springbootadmin.configuration;
 
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
 
 import java.util.UUID;
 
@@ -36,7 +37,7 @@ public class SecurityConfiguration {
 
 		SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		successHandler.setTargetUrlParameter("redirectTo");
-		successHandler.setDefaultTargetUrl(this.adminServer.path("/wallboard"));
+		successHandler.setDefaultTargetUrl(this.adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			.antMatchers(this.adminServer.path("/login")).permitAll()
@@ -44,18 +45,18 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
 			.antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
-			.antMatchers(GET.toString(), this.adminServer.path("/applications/**/")).permitAll()
+			.antMatchers(GET, this.adminServer.path("/applications/**")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
-			.antMatchers(this.adminServer.path("/instances")).permitAll()
+			.antMatchers(POST, this.adminServer.path("/instances")).permitAll()
 			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/info")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/health")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/*/details")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/*/actuator/info")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/*/actuator/health")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/*/actuator/metrics/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
-				.loginPage(this.adminServer.path("/login")).permitAll()
+				.loginPage(this.adminServer.path("/login"))
 				.successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
 			.exceptionHandling().accessDeniedPage("/").and()
