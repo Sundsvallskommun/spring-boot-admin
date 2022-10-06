@@ -16,7 +16,6 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
@@ -30,10 +29,6 @@ public class SecurityConfiguration {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
-
-		SavedRequestAwareAuthenticationSuccessHandler successHandler2 = new SavedRequestAwareAuthenticationSuccessHandler();
-		successHandler2.setTargetUrlParameter("redirectTo");
-		successHandler2.setDefaultTargetUrl(adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			.filterSecurityInterceptorOncePerRequest(true)
