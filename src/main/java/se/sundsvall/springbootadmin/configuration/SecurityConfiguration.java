@@ -1,5 +1,7 @@
 package se.sundsvall.springbootadmin.configuration;
 
+import static org.springframework.http.HttpMethod.GET;
+
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,17 +41,17 @@ public class SecurityConfiguration {
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			.antMatchers(this.adminServer.path("/login")).permitAll()
 			.antMatchers(this.adminServer.path("/assets/**")).permitAll()
-			// .antMatchers(this.adminServer.path("/actuator/info")).permitAll()
-			// .antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
+			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
+			.antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
-			.antMatchers(HttpMethod.GET.toString(), this.adminServer.path("/applications/**/")).permitAll()
+			.antMatchers(GET.toString(), this.adminServer.path("/applications/**/")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
 			.antMatchers(this.adminServer.path("/instances")).permitAll()
 			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/actuator/info")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/actuator/health")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
