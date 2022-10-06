@@ -37,6 +37,7 @@ public class SecurityConfiguration {
 		successHandler2.setDefaultTargetUrl(adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
+			.filterSecurityInterceptorOncePerRequest(false)
 			.antMatchers(adminServer.path("/login")).permitAll()
 			.antMatchers(adminServer.path("/assets/**")).permitAll()
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
