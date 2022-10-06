@@ -34,19 +34,22 @@ public class SecurityConfiguration {
 
 		SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		successHandler.setTargetUrlParameter("redirectTo");
-		successHandler.setDefaultTargetUrl(this.adminServer.getContextPath() + "/wallboard");
+		successHandler.setDefaultTargetUrl(this.adminServer.path("/wallboard"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
+			.antMatchers(this.adminServer.path("/login")).permitAll()
 			.antMatchers(this.adminServer.path("/assets/**")).permitAll()
-			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
-			.antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
+			// .antMatchers(this.adminServer.path("/actuator/info")).permitAll()
+			// .antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
-			.antMatchers(this.adminServer.path("/applications/**")).permitAll()
+			.antMatchers(this.adminServer.path("/applications/**"), HttpMethod.GET.toString()).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
 			.antMatchers(this.adminServer.path("/instances")).permitAll()
 			.antMatchers(this.adminServer.path("/actuator/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
-			.antMatchers(this.adminServer.path("/login")).permitAll().anyRequest().authenticated())
+			.antMatchers(this.adminServer.path("/instances/**/actuator/info")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
+			.anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
 				.loginPage(this.adminServer.path("/login"))
 				.successHandler(successHandler))
