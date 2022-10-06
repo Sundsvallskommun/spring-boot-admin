@@ -6,7 +6,6 @@ import static org.springframework.http.HttpMethod.POST;
 import java.time.Duration;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,47 +27,41 @@ import de.codecentric.boot.admin.server.config.AdminServerProperties;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-	private final static Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
-
-	@Autowired
-	private AdminServerProperties adminServer;
-
-	@Autowired
-	private AdminUser adminUser;
+	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
 
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, AccessDeniedHandler accessDeniedHandler) throws Exception {
 
 		SavedRequestAwareAuthenticationSuccessHandler successHandler2 = new SavedRequestAwareAuthenticationSuccessHandler();
 		successHandler2.setTargetUrlParameter("redirectTo");
-		successHandler2.setDefaultTargetUrl(this.adminServer.path("/"));
+		successHandler2.setDefaultTargetUrl(adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
-			.antMatchers(this.adminServer.path("/login")).permitAll()
-			.antMatchers(this.adminServer.path("/assets/**")).permitAll()
-			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
-			.antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
-			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
-			.antMatchers(this.adminServer.path("/journal")).permitAll()
-			.antMatchers(GET, this.adminServer.path("/applications/**")).permitAll()
-			.antMatchers(POST, this.adminServer.path("/instances")).permitAll()
+			.antMatchers(adminServer.path("/login")).permitAll()
+			.antMatchers(adminServer.path("/assets/**")).permitAll()
+			.antMatchers(adminServer.path("/actuator/info")).permitAll()
+			.antMatchers(adminServer.path("/actuator/health/**")).permitAll()
+			.antMatchers(adminServer.path("/wallboard")).permitAll()
+			.antMatchers(adminServer.path("/journal")).permitAll()
+			.antMatchers(GET, adminServer.path("/applications/**")).permitAll()
+			.antMatchers(POST, adminServer.path("/instances")).permitAll()
 			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/info")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/health")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
+			.antMatchers(adminServer.path("/instances/**/details")).permitAll()
+			.antMatchers(adminServer.path("/instances/**/actuator/info")).permitAll()
+			.antMatchers(adminServer.path("/instances/**/actuator/health")).permitAll()
+			.antMatchers(adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
+			.antMatchers(adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
-			.formLogin(formLogin -> formLogin.loginPage(this.adminServer.path("/login")).defaultSuccessUrl(this.adminServer.path("/")))
-			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedHandler(accessDeniedHandler()).and()
+			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
+			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
+			.exceptionHandling().accessDeniedHandler(accessDeniedHandler).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
-					new AntPathRequestMatcher(this.adminServer.path("/instances"),
+					new AntPathRequestMatcher(adminServer.path("/instances"),
 						HttpMethod.POST.toString()),
-					new AntPathRequestMatcher(this.adminServer.path("/instances/*"),
+					new AntPathRequestMatcher(adminServer.path("/instances/*"),
 						HttpMethod.DELETE.toString()),
-					new AntPathRequestMatcher(this.adminServer.path("/actuator/**"))))
+					new AntPathRequestMatcher(adminServer.path("/actuator/**"))))
 			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
 
 		return http.build();
@@ -80,7 +73,7 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	public UserDetailsService userDetailsService() {
+	public UserDetailsService userDetailsService(AdminUser adminUser) {
 
 		final var passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
 
