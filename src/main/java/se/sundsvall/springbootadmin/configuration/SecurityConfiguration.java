@@ -3,6 +3,7 @@ package se.sundsvall.springbootadmin.configuration;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
+import java.time.Duration;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,8 @@ import de.codecentric.boot.admin.server.config.AdminServerProperties;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
+	private final static Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
+
 	@Autowired
 	private AdminServerProperties adminServer;
 
@@ -46,8 +49,8 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/actuator/info")).permitAll()
 			.antMatchers(this.adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(this.adminServer.path("/wallboard")).permitAll()
-			.antMatchers(GET, this.adminServer.path("/applications/**")).permitAll()
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
+			.antMatchers(GET, this.adminServer.path("/applications/**")).permitAll()
 			.antMatchers(POST, this.adminServer.path("/instances")).permitAll()
 			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
@@ -56,11 +59,9 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
-			.formLogin(formLogin -> formLogin
-				.loginPage(this.adminServer.path("/login"))
-				.successHandler(successHandler))
+			.formLogin(formLogin -> formLogin.loginPage(this.adminServer.path("/login")).successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedHandler(accessDeniedHandler()).and()
+			.exceptionHandling().accessDeniedPage(this.adminServer.path("/assets/content/empty.json")).accessDeniedHandler(accessDeniedHandler()).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
 					new AntPathRequestMatcher(this.adminServer.path("/instances"),
@@ -68,7 +69,7 @@ public class SecurityConfiguration {
 					new AntPathRequestMatcher(this.adminServer.path("/instances/*"),
 						HttpMethod.DELETE.toString()),
 					new AntPathRequestMatcher(this.adminServer.path("/actuator/**"))))
-			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds(1209600));
+			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
 
 		return http.build();
 	}
