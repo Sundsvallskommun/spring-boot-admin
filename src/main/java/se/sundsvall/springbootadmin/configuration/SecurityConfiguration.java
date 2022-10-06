@@ -49,17 +49,17 @@ public class SecurityConfiguration {
 			.antMatchers(this.adminServer.path("/journal")).permitAll()
 			.antMatchers(POST, this.adminServer.path("/instances")).permitAll()
 			// .antMatchers(this.adminServer.path("/actuator/**")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/*/details")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/*/actuator/info")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/*/actuator/health")).permitAll()
-			.antMatchers(this.adminServer.path("/instances/*/actuator/metrics/**")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/**/details")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/**/actuator/info")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/**/actuator/health")).permitAll()
+			.antMatchers(this.adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(this.adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
 			.formLogin(formLogin -> formLogin
 				.loginPage(this.adminServer.path("/login"))
 				.successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(this.adminServer.path("/logout")))
-			.exceptionHandling().accessDeniedPage("/").and()
+			.exceptionHandling().accessDeniedPage(this.adminServer.path("/assets/content/empty.json")).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
 					new AntPathRequestMatcher(this.adminServer.path("/instances"),
