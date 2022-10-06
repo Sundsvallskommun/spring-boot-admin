@@ -13,7 +13,6 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
 	@Override
 	public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException exc) throws IOException, ServletException {
-		response.setContentType("application/json");
 		response.sendRedirect(request.getContextPath() + "/wallboard");
 	}
 }

@@ -53,7 +53,7 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(adminServer.path("/instances/events")).permitAll()
 			.anyRequest().authenticated())
-			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
+			.formLogin(formLogin -> formLogin.defaultSuccessUrl(adminServer.path("/wallboard")))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
 			.exceptionHandling().accessDeniedHandler(accessDeniedHandler).and()
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
