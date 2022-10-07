@@ -9,9 +9,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 
-import se.sundsvall.springbootadmin.Application;
-
-@SpringBootTest(classes = Application.class)
+@SpringBootTest
 @ActiveProfiles("junit")
 class SecurityConfigurationTest {
 
@@ -28,8 +26,8 @@ class SecurityConfigurationTest {
 
 	@Test
 	void userDetailsService() {
-		assertThat(userDetailsService.loadUserByUsername("username"))
+		assertThat(userDetailsService.loadUserByUsername("test-username"))
 			.isNotNull()
-			.hasFieldOrPropertyWithValue("username", "username");
+			.hasFieldOrPropertyWithValue("username", "test-username");
 	}
 }

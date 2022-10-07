@@ -21,6 +21,10 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 
+/**
+ * The purpose with this class is to configure the paths that should be public accessible.
+ * When (if) this is no longer necessary, this class (and the AdminUser.class) can be removed.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
@@ -29,9 +33,8 @@ public class SecurityConfiguration {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
-
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
-			.filterSecurityInterceptorOncePerRequest(true)
+			// Allow these paths for unauthorized users (i.e. public access)
 			.antMatchers(adminServer.path("/login")).permitAll()
 			.antMatchers(adminServer.path("/assets/**")).permitAll()
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
@@ -45,9 +48,12 @@ public class SecurityConfiguration {
 			.antMatchers(GET, adminServer.path("/instances/**/actuator/health")).permitAll()
 			.antMatchers(GET, adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
 			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
+			// All other requests should be protected.
 			.anyRequest().authenticated())
+			// Set up login page. Unauthorized requests will be redirected to the login-page.
 			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
+			// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
 					new AntPathRequestMatcher(adminServer.path("/instances"), HttpMethod.POST.toString()),
@@ -60,7 +66,6 @@ public class SecurityConfiguration {
 
 	@Bean
 	public UserDetailsService userDetailsService(AdminUser adminUser) {
-
 		final var passwordEncoder = createDelegatingPasswordEncoder();
 		final var admin = User.withUsername(adminUser.name())
 			.password(adminUser.password())
