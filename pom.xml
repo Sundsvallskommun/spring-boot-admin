@@ -38,7 +38,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
-		<!-- Test -->
+        <!-- Test -->
 		<dependency>
 			<groupId>se.sundsvall.dept44</groupId>
 			<artifactId>dept44-starter-test</artifactId>
