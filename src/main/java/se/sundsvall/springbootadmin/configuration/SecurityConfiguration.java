@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
@@ -33,8 +34,14 @@ public class SecurityConfiguration {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
+
+		SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+		successHandler.setTargetUrlParameter("redirectTo");
+		successHandler.setDefaultTargetUrl(adminServer.path("/"));
+
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			// Allow these paths for unauthorized users (i.e. public access)
+			.antMatchers(adminServer.path("/sba-settings.js")).permitAll()
 			.antMatchers(adminServer.path("/login")).permitAll()
 			.antMatchers(adminServer.path("/assets/**")).permitAll()
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
@@ -51,7 +58,7 @@ public class SecurityConfiguration {
 			// All other requests should be protected.
 			.anyRequest().authenticated())
 			// Set up login page. Unauthorized requests will be redirected to the login-page.
-			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).defaultSuccessUrl(adminServer.path("/wallboard")))
+			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
 			// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
@@ -66,13 +73,10 @@ public class SecurityConfiguration {
 
 	@Bean
 	public UserDetailsService userDetailsService(AdminUser adminUser) {
-		final var passwordEncoder = createDelegatingPasswordEncoder();
-		final var admin = User.withUsername(adminUser.name())
+		return new InMemoryUserDetailsManager(User.withUsername(adminUser.name())
 			.password(adminUser.password())
 			.roles("ADMIN")
-			.passwordEncoder(passwordEncoder::encode)
-			.build();
-
-		return new InMemoryUserDetailsManager(admin);
+			.passwordEncoder(createDelegatingPasswordEncoder()::encode)
+			.build());
 	}
 }
