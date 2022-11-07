@@ -48,7 +48,7 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
 			.antMatchers(adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(adminServer.path("/wallboard")).permitAll()
-			// .antMatchers(adminServer.path("/journal")).permitAll()
+			.antMatchers(adminServer.path("/journal")).permitAll()
 			.antMatchers(GET, adminServer.path("/applications")).permitAll()
 			.antMatchers(POST, adminServer.path("/instances")).permitAll()
 			// .antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
