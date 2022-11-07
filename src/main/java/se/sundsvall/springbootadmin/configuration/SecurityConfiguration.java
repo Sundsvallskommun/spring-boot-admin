@@ -42,7 +42,7 @@ public class SecurityConfiguration {
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
 			// Allow these paths for unauthorized users (i.e. public access)
 			.antMatchers(adminServer.path("/sba-settings.js")).permitAll()
-			.antMatchers(adminServer.path("/favicon.ico")).permitAll()
+			.antMatchers(adminServer.path("/favicon.*")).permitAll()
 			.antMatchers(adminServer.path("/login")).permitAll()
 			.antMatchers(adminServer.path("/assets/**")).permitAll()
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
@@ -50,6 +50,7 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/wallboard")).permitAll()
 			.antMatchers(adminServer.path("/journal")).permitAll()
 			.antMatchers(GET, adminServer.path("/applications")).permitAll()
+			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
 			.antMatchers(POST, adminServer.path("/instances")).permitAll()
 			// .antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
 			// .antMatchers(GET, adminServer.path("/instances/**/actuator/info")).permitAll()
