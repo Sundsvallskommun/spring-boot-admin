@@ -1,6 +1,5 @@
 package se.sundsvall.springbootadmin.configuration;
 
-import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
 
@@ -48,14 +47,14 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/actuator/info")).permitAll()
 			.antMatchers(adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(adminServer.path("/wallboard")).permitAll()
-			.antMatchers(adminServer.path("/journal")).permitAll()
-			.antMatchers(GET, adminServer.path("/applications/**")).permitAll()
+			// .antMatchers(adminServer.path("/journal")).permitAll()
+			// .antMatchers(GET, adminServer.path("/applications/**")).permitAll()
 			.antMatchers(POST, adminServer.path("/instances")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/**/actuator/info")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/**/actuator/health")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
+			// .antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
+			// .antMatchers(GET, adminServer.path("/instances/**/actuator/info")).permitAll()
+			// .antMatchers(GET, adminServer.path("/instances/**/actuator/health")).permitAll()
+			// .antMatchers(GET, adminServer.path("/instances/**/actuator/metrics/**")).permitAll()
+			// .antMatchers(GET, adminServer.path("/instances/events")).permitAll()
 			// All other requests should be protected.
 			.anyRequest().authenticated())
 			// Set up login page. Unauthorized requests will be redirected to the login-page.
