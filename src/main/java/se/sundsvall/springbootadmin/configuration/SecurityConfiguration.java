@@ -1,5 +1,6 @@
 package se.sundsvall.springbootadmin.configuration;
 
+import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
 
@@ -48,7 +49,7 @@ public class SecurityConfiguration {
 			.antMatchers(adminServer.path("/actuator/health/**")).permitAll()
 			.antMatchers(adminServer.path("/wallboard")).permitAll()
 			// .antMatchers(adminServer.path("/journal")).permitAll()
-			// .antMatchers(GET, adminServer.path("/applications/**")).permitAll()
+			.antMatchers(GET, adminServer.path("/applications")).permitAll()
 			.antMatchers(POST, adminServer.path("/instances")).permitAll()
 			// .antMatchers(GET, adminServer.path("/instances/**/details")).permitAll()
 			// .antMatchers(GET, adminServer.path("/instances/**/actuator/info")).permitAll()
