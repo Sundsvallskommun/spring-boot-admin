@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>se.sundsvall.dept44</groupId>
 		<artifactId>dept44-service-parent</artifactId>
-		<version>1.24</version>
+		<version>1.25</version>
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>se.sundsvall</groupId>
@@ -15,8 +15,8 @@
 	<description>Spring Boot Admin</description>
 	<properties>
 		<docker.image.name>ms-spring-boot-admin</docker.image.name>
-		<published.container.port.test>1337</published.container.port.test>
-		<published.container.port.production>1337</published.container.port.production>
+		<published.container.port.test>7331</published.container.port.test>
+		<published.container.port.production>7331</published.container.port.production>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
