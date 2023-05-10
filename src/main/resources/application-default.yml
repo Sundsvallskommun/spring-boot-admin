@@ -1,0 +1,10 @@
+config:
+    ui:
+        brand: <img src="assets/img/icon-spring-boot-admin.svg"><span>Utvecklingsfabriken - LOCAL</span>
+        title: Utvecklingsfabriken - LOCAL
+    slack:
+        enabled: false
+        webhook-url: none
+    security:
+        name: test-username
+        password: test-password
