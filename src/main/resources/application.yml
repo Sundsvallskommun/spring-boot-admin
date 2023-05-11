@@ -33,3 +33,9 @@ spring:
         user:
             name: ${config.security.name}
             password: ${config.security.password}
+    cloud:
+        kubernetes:
+            discovery:
+                all-namespaces: true
+                service-labels:
+                    spring-boot: true

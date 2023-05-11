@@ -2,6 +2,7 @@ package se.sundsvall.springbootadmin.configuration;
 
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
 
 import java.time.Duration;
@@ -40,20 +41,21 @@ public class SecurityConfiguration {
 		successHandler.setDefaultTargetUrl(adminServer.path("/"));
 
 		http.authorizeRequests(authorizeRequests -> authorizeRequests
-			// Allow these paths for unauthorized users (i.e. public access)
-			.antMatchers(GET, adminServer.path("/sba-settings.js")).permitAll()
-			.antMatchers(GET, adminServer.path("/favicon.*")).permitAll()
-			.antMatchers(GET, adminServer.path("/login")).permitAll()
-			.antMatchers(GET, adminServer.path("/assets/**")).permitAll()
-			.antMatchers(GET, adminServer.path("/actuator/info")).permitAll()
-			.antMatchers(GET, adminServer.path("/actuator/health/**")).permitAll()
-			.antMatchers(GET, adminServer.path("/wallboard")).permitAll()
-			.antMatchers(GET, adminServer.path("/journal")).permitAll()
-			.antMatchers(GET, adminServer.path("/applications")).permitAll()
-			.antMatchers(GET, adminServer.path("/instances/events")).permitAll()
-			.antMatchers(POST, adminServer.path("/instances")).permitAll()
-			// All other requests should be protected.
-			.anyRequest().authenticated())
+				// Allow these paths for unauthorized users (i.e. public access)
+				.requestMatchers(
+					antMatcher(GET, adminServer.path("/sba-settings.js")),
+					antMatcher(GET, adminServer.path("/favicon.*")),
+					antMatcher(GET, adminServer.path("/login")),
+					antMatcher(GET, adminServer.path("/assets/**")),
+					antMatcher(GET, adminServer.path("/actuator/info")),
+					antMatcher(GET, adminServer.path("/actuator/health/**")),
+					antMatcher(GET, adminServer.path("/wallboard")),
+					antMatcher(GET, adminServer.path("/journal")),
+					antMatcher(GET, adminServer.path("/applications")),
+					antMatcher(GET, adminServer.path("/instances/events")),
+					antMatcher(POST, adminServer.path("/instances"))).permitAll()
+				// All other requests should be protected.
+				.anyRequest().authenticated())
 			// Set up login page. Unauthorized requests will be redirected to the login-page.
 			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).successHandler(successHandler))
 			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
