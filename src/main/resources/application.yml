@@ -1,0 +1,35 @@
+logbook:
+    excluded:
+        paths: /**
+openapi:
+    enabled: false
+server:
+    forward-headers-strategy: framework
+spring:
+    application:
+        name: ms-spring-boot-admin
+    boot:
+        admin:
+            ui:
+                title: ${config.ui.title}
+                brand: ${config.ui.brand}
+            monitor:
+                # Time interval to check the status of instances (in ms).
+                status-interval: 30000
+                # Lifetime of status. The status won’t be updated as long the last status isn’t expired (in ms).
+                status-lifetime: 120000
+            notify:
+                # Slack integration
+                slack:
+                    enabled: ${config.slack.enabled}
+                    webhook-url: ${config.slack.webhook-url}
+                    ignore-changes: UNKNOWN:*
+                    message: '*#{instance.registration.name}* (#{instance.id}) changed
+                        status to *#{event.statusInfo.status}*'
+    main:
+        # Necessary in order to override SecurityFilterChain-bean (See: se.sundsvall.springbootadmin.configuration.SecurityConfiguration)
+        allow-bean-definition-overriding: true
+    security:
+        user:
+            name: ${config.security.name}
+            password: ${config.security.password}
