@@ -1,0 +1,7 @@
+config:
+    slack:
+        enabled: false
+        webhook-url: none
+    security:
+        name: test-username
+        password: test-password
