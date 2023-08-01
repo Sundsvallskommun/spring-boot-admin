@@ -42,7 +42,6 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-kubernetes-client-all</artifactId>
 		</dependency>
-		
 		<!-- Test -->
 		<dependency>
 			<groupId>se.sundsvall.dept44</groupId>
