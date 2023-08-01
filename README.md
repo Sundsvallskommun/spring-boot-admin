@@ -1,6 +1,7 @@
-# spring-boot-admin
+# SpringBootAdmin
 
 ## Beskrivning
+
 Admin-server för att presentera health, metrics och övriga applikationsdetaljer.
 
 ## Leverantör
