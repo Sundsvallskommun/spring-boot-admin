@@ -1,16 +1,17 @@
 package se.sundsvall.springbootadmin.configuration;
 
+import static jakarta.servlet.DispatcherType.ASYNC;
+import static java.util.UUID.randomUUID;
+import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
+import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 
 import java.time.Duration;
-import java.util.UUID;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -19,13 +20,11 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 
 /**
- * The purpose with this class is to configure the paths that should be public accessible.
- * When (if) this is no longer necessary, this class (and the AdminUser.class) can be removed.
+ * The purpose with this class is to configure access to the paths used in SBA.
  */
 @Configuration
 @EnableWebSecurity
@@ -34,38 +33,54 @@ public class SecurityConfiguration {
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
 
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
+	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
 
-		final var successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
-		successHandler.setTargetUrlParameter("redirectTo");
-		successHandler.setDefaultTargetUrl(adminServer.path("/"));
+		final var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+		loginSuccessHandler.setTargetUrlParameter("redirectTo");
+		loginSuccessHandler.setDefaultTargetUrl("/");
 
-		http.authorizeRequests(authorizeRequests -> authorizeRequests
-				// Allow these paths for unauthorized users (i.e. public access)
-				.requestMatchers(
-					antMatcher(GET, adminServer.path("/sba-settings.js")),
-					antMatcher(GET, adminServer.path("/favicon.*")),
-					antMatcher(GET, adminServer.path("/login")),
-					antMatcher(GET, adminServer.path("/assets/**")),
-					antMatcher(GET, adminServer.path("/actuator/info")),
-					antMatcher(GET, adminServer.path("/actuator/health/**")),
-					antMatcher(GET, adminServer.path("/wallboard")),
-					antMatcher(GET, adminServer.path("/journal")),
-					antMatcher(GET, adminServer.path("/applications")),
-					antMatcher(GET, adminServer.path("/instances/events")),
-					antMatcher(POST, adminServer.path("/instances"))).permitAll()
-				// All other requests should be protected.
-				.anyRequest().authenticated())
-			// Set up login page. Unauthorized requests will be redirected to the login-page.
-			.formLogin(formLogin -> formLogin.loginPage(adminServer.path("/login")).successHandler(successHandler))
-			.logout(logout -> logout.logoutUrl(adminServer.path("/logout")))
-			// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
+		http.authorizeHttpRequests(authorizeRequests -> authorizeRequests
+			.requestMatchers(
+
+				// Grants public access to all static assets and the login page.
+				antMatcher(GET, adminServer.path("/assets/**")),
+				antMatcher(GET, adminServer.path("/actuator/info")),
+				antMatcher(GET, adminServer.path("/actuator/health")),
+				antMatcher(adminServer.path("/login")),
+				antMatcher(adminServer.path("/logout")),
+				// Grants public access to the endpoint the Spring Boot Admin Client uses to (de-)register.
+				antMatcher(adminServer.path("/instances"))).permitAll()
+
+			// https://github.com/spring-projects/spring-security/issues/11027
+			.dispatcherTypeMatchers(ASYNC).permitAll()
+
+			// All other requests should be protected.
+			.anyRequest().authenticated())
+
+			// Set up login form.
+			.formLogin(formLogin -> formLogin
+				.loginPage(adminServer.path("/login"))
+				.successHandler(loginSuccessHandler))
+
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
-					new AntPathRequestMatcher(adminServer.path("/instances"), HttpMethod.POST.toString()),
-					new AntPathRequestMatcher(adminServer.path("/instances/*"), HttpMethod.DELETE.toString()),
-					new AntPathRequestMatcher(adminServer.path("/actuator/**"))))
-			.rememberMe(rememberMe -> rememberMe.key(UUID.randomUUID().toString()).tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
+
+					// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
+					antMatcher(POST, adminServer.path("/instances")),
+					antMatcher(DELETE, adminServer.path("/instances/*")),
+					antMatcher(DELETE, adminServer.path("/instances/**")),
+					antMatcher(adminServer.path("/actuator/**")),
+
+					// Disables CSRF-Protection for the logout-endpoint.
+					antMatcher(adminServer.path("/logout")),
+
+					// Disables CSRF-Protection for the endpoint the UI uses to deregister applications.
+					antMatcher(adminServer.path("/applications/**"))))
+
+			.rememberMe(rememberMe -> rememberMe
+				.alwaysRemember(true)
+				.key(randomUUID().toString())
+				.tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
 
 		return http.build();
 	}
