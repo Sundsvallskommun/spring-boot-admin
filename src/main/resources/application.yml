@@ -13,6 +13,7 @@ spring:
             ui:
                 title: ${config.ui.title}
                 brand: ${config.ui.brand}
+                remember-me-enabled: false
             monitor:
                 # Time interval to check the status of instances (in ms).
                 status-interval: 30000
