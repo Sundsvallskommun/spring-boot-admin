@@ -11,5 +11,6 @@ Admin-server för att presentera health, metrics och övriga applikationsdetalje
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=Sundsvallskommun_spring-boot-admin&metric=vulnerabilities)](https://sonarcloud.io/summary/overall?id=Sundsvallskommun_spring-boot-admin)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Sundsvallskommun_spring-boot-admin&metric=bugs)](https://sonarcloud.io/summary/overall?id=Sundsvallskommun_spring-boot-admin)
 
+
 ##
 Copyright (c) 2023 Sundsvalls kommun
