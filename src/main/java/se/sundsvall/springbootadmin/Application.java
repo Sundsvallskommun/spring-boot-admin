@@ -10,13 +10,13 @@ import se.sundsvall.dept44.ServiceApplication;
 import se.sundsvall.dept44.configuration.OpenApiConfiguration;
 import se.sundsvall.dept44.configuration.SecurityConfiguration;
 import se.sundsvall.dept44.configuration.WebConfiguration;
-import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedReport;
+import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 @ServiceApplication(exclude = { WebConfiguration.class, OpenApiConfiguration.class, SecurityConfiguration.class })
 @EnableAdminServer
 @EnableDiscoveryClient
 @EnableScheduling
-@ExcludeFromJacocoGeneratedReport
+@ExcludeFromJacocoGeneratedCoverageReport
 public class Application {
 	public static void main(String... args) {
 		run(Application.class, args);
