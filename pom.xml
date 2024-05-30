@@ -14,9 +14,6 @@
 	<name>spring-boot-admin</name>
 	<description>Spring Boot Admin</description>
 	<properties>
-		<docker.image.name>ms-spring-boot-admin</docker.image.name>
-		<published.container.port.test>7331</published.container.port.test>
-		<published.container.port.production>7331</published.container.port.production>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
