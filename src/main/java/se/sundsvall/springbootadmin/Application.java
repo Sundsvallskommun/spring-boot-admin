@@ -12,7 +12,9 @@ import se.sundsvall.dept44.configuration.SecurityConfiguration;
 import se.sundsvall.dept44.configuration.WebConfiguration;
 import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
-@ServiceApplication(exclude = { WebConfiguration.class, OpenApiConfiguration.class, SecurityConfiguration.class })
+@ServiceApplication(exclude = {
+	WebConfiguration.class, OpenApiConfiguration.class, SecurityConfiguration.class
+})
 @EnableAdminServer
 @EnableDiscoveryClient
 @EnableScheduling
