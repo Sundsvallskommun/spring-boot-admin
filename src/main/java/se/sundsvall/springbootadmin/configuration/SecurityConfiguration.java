@@ -8,8 +8,8 @@ import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
 import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 
+import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import java.time.Duration;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,8 +20,6 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-
-import de.codecentric.boot.admin.server.config.AdminServerProperties;
 
 /**
  * The purpose with this class is to configure access to the paths used in SBA.
