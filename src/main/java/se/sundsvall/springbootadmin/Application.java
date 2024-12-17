@@ -2,10 +2,9 @@ package se.sundsvall.springbootadmin;
 
 import static org.springframework.boot.SpringApplication.run;
 
+import de.codecentric.boot.admin.server.config.EnableAdminServer;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
-import de.codecentric.boot.admin.server.config.EnableAdminServer;
 import se.sundsvall.dept44.ServiceApplication;
 import se.sundsvall.dept44.configuration.OpenApiConfiguration;
 import se.sundsvall.dept44.configuration.SecurityConfiguration;
