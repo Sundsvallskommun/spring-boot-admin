@@ -7,7 +7,7 @@ server:
     forward-headers-strategy: framework
 spring:
     application:
-        name: ms-spring-boot-admin
+        name: spring-boot-admin
     boot:
         admin:
             ui:
