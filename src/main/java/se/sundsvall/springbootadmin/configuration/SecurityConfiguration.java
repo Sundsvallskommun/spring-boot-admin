@@ -12,6 +12,7 @@ import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import java.time.Duration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -31,7 +32,7 @@ public class SecurityConfiguration {
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
 
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
+	SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
 
 		final var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		loginSuccessHandler.setTargetUrlParameter("redirectTo");
@@ -39,21 +40,26 @@ public class SecurityConfiguration {
 
 		http.authorizeHttpRequests(authorizeRequests -> authorizeRequests
 			.requestMatchers(
-
 				// Grants public access to all static assets and the login page.
 				antMatcher(GET, adminServer.path("/assets/**")),
 				antMatcher(GET, adminServer.path("/actuator/info")),
 				antMatcher(GET, adminServer.path("/actuator/health")),
+
+				antMatcher(adminServer.path("/wallboard")),
+				antMatcher(adminServer.path("/sba-settings.js")),
 				antMatcher(adminServer.path("/login")),
 				antMatcher(adminServer.path("/logout")),
 				// Grants public access to the endpoint the Spring Boot Admin Client uses to (de-)register.
-				antMatcher(adminServer.path("/instances"))).permitAll()
+				antMatcher(adminServer.path("/instances")))
+			.permitAll()
 
 			// https://github.com/spring-projects/spring-security/issues/11027
 			.dispatcherTypeMatchers(ASYNC).permitAll()
 
 			// All other requests should be protected.
 			.anyRequest().authenticated())
+
+			.httpBasic(Customizer.withDefaults())
 
 			// Set up login form.
 			.formLogin(formLogin -> formLogin
@@ -84,7 +90,7 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	public UserDetailsService userDetailsService(AdminUser adminUser) {
+	UserDetailsService userDetailsService(AdminUser adminUser) {
 		return new InMemoryUserDetailsManager(User.withUsername(adminUser.name())
 			.password(adminUser.password())
 			.roles("ADMIN")
