@@ -2,6 +2,7 @@ package se.sundsvall.springbootadmin.configuration;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,23 +12,41 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("junit")
-class SecurityConfigurationTest {
-
-	@Autowired
-	private SecurityFilterChain securityFilterChain;
+class ApplicationSecurityConfigurationTest {
 
 	@Autowired
 	private UserDetailsService userDetailsService;
-
-	@Test
-	void securityFilterChain() {
-		assertThat(securityFilterChain).isNotNull();
-	}
 
 	@Test
 	void userDetailsService() {
 		assertThat(userDetailsService.loadUserByUsername("test-username"))
 			.isNotNull()
 			.hasFieldOrPropertyWithValue("username", "test-username");
+	}
+
+	@Nested
+	@SpringBootTest(properties = "spring.security.enabled=true")
+	class SecurityEnabled {
+
+		@Autowired
+		private SecurityFilterChain securityFilterChain;
+
+		@Test
+		void securityFilterChainWhenEnabled() {
+			assertThat(securityFilterChain).isNotNull();
+		}
+	}
+
+	@Nested
+	@SpringBootTest(properties = "spring.security.enabled=false")
+	class SecurityDisabled {
+
+		@Autowired
+		private SecurityFilterChain securityFilterChain;
+
+		@Test
+		void securityFilterChainWhenDisabled() {
+			assertThat(securityFilterChain).isNotNull();
+		}
 	}
 }

@@ -10,10 +10,12 @@ import static org.springframework.security.web.util.matcher.AntPathRequestMatche
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import java.time.Duration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
@@ -26,12 +28,41 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
  */
 @Configuration
 @EnableWebSecurity
-public class SecurityConfiguration {
+public class ApplicationSecurityConfiguration {
 
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
 
+	/**
+	 * The "Security disabled" bean.
+	 * 
+	 * When this bean is activated then security is disabled (no authentication required).
+	 * This bean is activated by setting the application property "spring.security.enabled" to false.
+	 * 
+	 * @param  http
+	 * @return           SecurityFilterChain
+	 * @throws Exception
+	 */
 	@Bean
-	SecurityFilterChain filterChain(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
+	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false", matchIfMissing = false)
+	SecurityFilterChain filterChainSecurityDisbaled(HttpSecurity http) throws Exception {
+		http.csrf(AbstractHttpConfigurer::disable);
+
+		return http.build();
+	}
+
+	/**
+	 * The "Security enabled" bean.
+	 * 
+	 * When this bean is activated then security is enabled.
+	 * This bean is activated by setting the application property "spring.security.enabled" to false.
+	 * 
+	 * @param  http
+	 * @return           SecurityFilterChain
+	 * @throws Exception
+	 */
+	@Bean
+	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+	SecurityFilterChain filterChainSecurityEnabled(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
 
 		final var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		loginSuccessHandler.setTargetUrlParameter("redirectTo");
