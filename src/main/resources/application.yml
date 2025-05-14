@@ -25,12 +25,10 @@ spring:
                     enabled: ${config.slack.enabled}
                     webhook-url: ${config.slack.webhook-url}
                     ignore-changes: UNKNOWN:*
-                    message: '*#{instance.registration.name}* (#{instance.id}) changed
-                        status to *#{event.statusInfo.status}*'
-    main:
-        # Necessary in order to override SecurityFilterChain-bean (See: se.sundsvall.springbootadmin.configuration.SecurityConfiguration)
-        allow-bean-definition-overriding: true
+                    message: '*#{instance.registration.name}* (#{instance.id}) is *#{event.statusInfo.status}*'
     security:
+        # Enable or disble security (e.g. authentication). Default if missing: true
+        enabled: false
         user:
             name: ${config.security.name}
             password: ${config.security.password}

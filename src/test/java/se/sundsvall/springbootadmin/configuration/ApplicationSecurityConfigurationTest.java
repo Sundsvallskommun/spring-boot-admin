@@ -11,7 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("junit")
-class SecurityConfigurationTest {
+class ApplicationSecurityConfigurationTest {
 
 	@Autowired
 	private SecurityFilterChain securityFilterChain;
