@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
@@ -45,7 +46,14 @@ public class ApplicationSecurityConfiguration {
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false", matchIfMissing = false)
 	SecurityFilterChain filterChainSecurityDisbaled(HttpSecurity http) throws Exception {
-		http.csrf(AbstractHttpConfigurer::disable);
+
+		http
+			// Disable Configurer
+			.csrf(AbstractHttpConfigurer::disable)
+
+			// Remove "X-Frame-Options"-header (prevents Xibo from working)
+			.headers(headers -> headers
+				.frameOptions(FrameOptionsConfig::disable));
 
 		return http.build();
 	}
@@ -93,6 +101,10 @@ public class ApplicationSecurityConfiguration {
 			.formLogin(formLogin -> formLogin
 				.loginPage(adminServer.path("/login"))
 				.successHandler(loginSuccessHandler))
+
+			// Remove "X-Frame-Options"-header (prevents Xibo from working)
+			.headers(headers -> headers
+				.frameOptions(FrameOptionsConfig::disable))
 
 			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 				.ignoringRequestMatchers(
