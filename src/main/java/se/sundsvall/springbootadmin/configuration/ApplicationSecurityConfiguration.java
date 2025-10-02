@@ -20,9 +20,11 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 @Configuration
 @EnableWebSecurity
+@ExcludeFromJacocoGeneratedCoverageReport
 public class ApplicationSecurityConfiguration {
 
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
