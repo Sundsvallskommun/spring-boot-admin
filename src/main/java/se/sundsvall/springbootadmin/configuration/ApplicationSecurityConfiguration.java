@@ -1,13 +1,10 @@
 package se.sundsvall.springbootadmin.configuration;
 
-import static jakarta.servlet.DispatcherType.ASYNC;
 import static java.util.UUID.randomUUID;
 import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
-import static org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse;
-import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import java.time.Duration;
@@ -23,12 +20,11 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
-/**
- * The purpose with this class is to configure access to the paths used in SBA.
- */
 @Configuration
 @EnableWebSecurity
+@ExcludeFromJacocoGeneratedCoverageReport
 public class ApplicationSecurityConfiguration {
 
 	private static final Duration REMEMBER_ME_DURATION = Duration.ofDays(14);
@@ -45,28 +41,11 @@ public class ApplicationSecurityConfiguration {
 	 */
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false", matchIfMissing = false)
-	SecurityFilterChain filterChainSecurityDisbaled(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
-
+	SecurityFilterChain securityDisabled(HttpSecurity http) throws Exception {
 		http
-			.csrf(csrf -> csrf.csrfTokenRepository(withHttpOnlyFalse())
-				.ignoringRequestMatchers(
-
-					// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
-					antMatcher(POST, adminServer.path("/instances")),
-					antMatcher(DELETE, adminServer.path("/instances/*")),
-					antMatcher(DELETE, adminServer.path("/instances/**")),
-					antMatcher(adminServer.path("/actuator/**")),
-
-					// Disables CSRF-Protection for the logout-endpoint.
-					antMatcher(adminServer.path("/logout")),
-
-					// Disables CSRF-Protection for the endpoint the UI uses to deregister applications.
-					antMatcher(adminServer.path("/applications/**"))))
-
-			// Remove "X-Frame-Options"-header (prevents Xibo from working)
-			.headers(headers -> headers
-				.frameOptions(FrameOptionsConfig::disable));
-
+			.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+			.csrf(csrf -> csrf.disable())
+			.headers(headers -> headers.frameOptions(FrameOptionsConfig::disable));
 		return http.build();
 	}
 
@@ -82,58 +61,41 @@ public class ApplicationSecurityConfiguration {
 	 */
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
-	SecurityFilterChain filterChainSecurityEnabled(HttpSecurity http, AdminServerProperties adminServer, UserDetailsService userDetailsService) throws Exception {
+	SecurityFilterChain securityEnabled(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
 
-		final var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+		var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		loginSuccessHandler.setTargetUrlParameter("redirectTo");
 		loginSuccessHandler.setDefaultTargetUrl("/");
 
-		http.authorizeHttpRequests(authorizeRequests -> authorizeRequests
-			.requestMatchers(
-				// Grants public access to all static assets and the login page.
-				antMatcher(GET, adminServer.path("/assets/**")),
-				antMatcher(GET, adminServer.path("/actuator/info")),
-				antMatcher(GET, adminServer.path("/actuator/health")),
-
-				antMatcher(adminServer.path("/wallboard")),
-				antMatcher(adminServer.path("/sba-settings.js")),
-				antMatcher(adminServer.path("/login")),
-				antMatcher(adminServer.path("/logout")),
-				// Grants public access to the endpoint the Spring Boot Admin Client uses to (de-)register.
-				antMatcher(adminServer.path("/instances")))
-			.permitAll()
-
-			// https://github.com/spring-projects/spring-security/issues/11027
-			.dispatcherTypeMatchers(ASYNC).permitAll()
-
-			// All other requests should be protected.
-			.anyRequest().authenticated())
-
-			// Set up login form.
-			.formLogin(formLogin -> formLogin
+		http
+			.authorizeHttpRequests(auth -> auth
+				// Public GET endpoints
+				.requestMatchers(GET,
+					adminServer.path("/assets/**"),
+					adminServer.path("/actuator/info"),
+					adminServer.path("/actuator/health"),
+					adminServer.path("/wallboard"),
+					adminServer.path("/sba-settings.js"),
+					adminServer.path("/login")).permitAll()
+				// Public POST/DELETE endpoints
+				.requestMatchers(POST, adminServer.path("/logout"), adminServer.path("/instances")).permitAll()
+				.requestMatchers(DELETE, adminServer.path("/instances/**")).permitAll()
+				// All other requests require authentication
+				.anyRequest().authenticated())
+			.formLogin(form -> form
 				.loginPage(adminServer.path("/login"))
 				.successHandler(loginSuccessHandler))
-
-			// Remove "X-Frame-Options"-header (prevents Xibo from working)
-			.headers(headers -> headers
-				.frameOptions(FrameOptionsConfig::disable))
-
-			.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+			.headers(headers -> headers.frameOptions(FrameOptionsConfig::disable))
+			.csrf(csrf -> csrf
+				.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+				// CSRF exemption for SBA endpoints
 				.ignoringRequestMatchers(
-
-					// Disables CSRF-Protection for the endpoint the Spring Boot Admin Client uses to (de-)register.
-					antMatcher(POST, adminServer.path("/instances")),
-					antMatcher(DELETE, adminServer.path("/instances/*")),
-					antMatcher(DELETE, adminServer.path("/instances/**")),
-					antMatcher(adminServer.path("/actuator/**")),
-
-					// Disables CSRF-Protection for the logout-endpoint.
-					antMatcher(adminServer.path("/logout")),
-
-					// Disables CSRF-Protection for the endpoint the UI uses to deregister applications.
-					antMatcher(adminServer.path("/applications/**"))))
-
-			.rememberMe(rememberMe -> rememberMe
+					request -> POST.matches(request.getMethod()) && request.getServletPath().equals(adminServer.path("/instances")),
+					request -> DELETE.matches(request.getMethod()) && request.getServletPath().startsWith(adminServer.path("/instances")),
+					request -> GET.matches(request.getMethod()) && request.getServletPath().startsWith(adminServer.path("/actuator")),
+					request -> POST.matches(request.getMethod()) && request.getServletPath().equals(adminServer.path("/logout")),
+					request -> DELETE.matches(request.getMethod()) && request.getServletPath().startsWith(adminServer.path("/applications"))))
+			.rememberMe(rm -> rm
 				.alwaysRemember(true)
 				.key(randomUUID().toString())
 				.tokenValiditySeconds((int) REMEMBER_ME_DURATION.toSeconds()));
