@@ -8,6 +8,8 @@ server:
 spring:
     application:
         name: spring-boot-admin
+    flyway:
+        enabled: false
     boot:
         admin:
             ui:
@@ -17,8 +19,11 @@ spring:
             monitor:
                 # Time interval to check the status of instances (in ms).
                 status-interval: 30000
-                # Lifetime of status. The status won’t be updated as long the last status isn’t expired (in ms).
+                # Lifetime of status. The status won't be updated as long the last status isn't expired (in ms).
                 status-lifetime: 120000
+            journal:
+                retention-days: 30
+                max-events-per-instance: 1000
             notify:
                 # Slack integration
                 slack:
@@ -38,3 +43,11 @@ spring:
                 all-namespaces: true
                 service-labels:
                     spring-boot: true
+scheduler:
+    journal:
+        retention:
+            cron:
+                expression: "0 0 * * * *"
+            name: journal-retention-cleanup
+            lock-at-most-for: PT10M
+            maximum-execution-time: PT10M
