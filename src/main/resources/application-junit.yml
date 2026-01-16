@@ -5,3 +5,12 @@ config:
     security:
         name: test-username
         password: test-password
+    ui:
+        title: Test Spring Boot Admin
+        brand: Test SBA
+spring:
+  datasource:
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    url: jdbc:tc:mariadb:10.6.14:///test
+  flyway:
+    enabled: true
