@@ -72,7 +72,7 @@ public class ApplicationSecurityConfiguration {
 				// Public GET endpoints
 				.requestMatchers(GET,
 					adminServer.path("/assets/**"),
-					adminServer.path("/actuator/info"),
+					adminServer.path("/actuator/**"),
 					adminServer.path("/actuator/health"),
 					adminServer.path("/wallboard"),
 					adminServer.path("/sba-settings.js"),

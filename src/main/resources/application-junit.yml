@@ -1,13 +1,13 @@
 config:
-    slack:
-        enabled: false
-        webhook-url: none
-    security:
-        name: test-username
-        password: test-password
-    ui:
-        title: Test Spring Boot Admin
-        brand: Test SBA
+  slack:
+    enabled: false
+    webhook-url: none
+  security:
+    name: test-username
+    password: test-password
+  ui:
+    title: Test Spring Boot Admin
+    brand: Test SBA
 spring:
   datasource:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver

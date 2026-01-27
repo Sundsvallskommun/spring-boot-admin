@@ -187,7 +187,7 @@ class EventPersistenceStoreTest {
 
 		// Insert corrupt JSON directly into database
 		jdbcTemplate.update(
-			"INSERT INTO events (instance_id, event_type, version, timestamp, event_json) VALUES (?, ?, ?, NOW(), ?)",
+			"INSERT INTO event (instance_id, event_type, version, timestamp, event_json) VALUES (?, ?, ?, NOW(), ?)",
 			"id-corrupt", "CorruptEvent", 1L, "not valid json");
 
 		final var loaded = store.loadAll();

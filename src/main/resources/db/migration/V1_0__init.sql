@@ -1,4 +1,4 @@
-create table if not exists events
+create table if not exists event
 (
     id          bigint auto_increment primary key,
     instance_id varchar(255) not null,

@@ -108,7 +108,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 		Mono.fromRunnable(() -> {
 			try {
 				persistenceStore.saveBatch(events);
-				LOGGER.info("Persisted {} events to database", events.size());
+				LOGGER.debug("Persisted {} events to database", events.size());
 			} catch (final Exception e) {
 				LOGGER.error("Failed to persist {} events to database: {}", events.size(), e.getMessage());
 			}
