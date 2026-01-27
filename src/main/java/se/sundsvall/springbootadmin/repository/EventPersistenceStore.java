@@ -26,24 +26,24 @@ public class EventPersistenceStore {
 	private static final Logger LOGGER = LoggerFactory.getLogger(EventPersistenceStore.class);
 
 	private static final String INSERT_SQL = """
-		INSERT INTO events (instance_id, event_type, version, timestamp, event_json)
+		INSERT INTO event (instance_id, event_type, version, timestamp, event_json)
 		VALUES (?, ?, ?, ?, ?)
 		""";
 
 	private static final String SELECT_ALL_SQL = """
-		SELECT event_json FROM events ORDER BY timestamp ASC
+		SELECT event_json FROM event ORDER BY timestamp ASC
 		""";
 
 	private static final String DELETE_OLDER_THAN_SQL = """
-		DELETE FROM events WHERE timestamp < ?
+		DELETE FROM event WHERE timestamp < ?
 		""";
 
 	private static final String DELETE_EXCESS_EVENTS_SQL = """
-		DELETE FROM events
+		DELETE FROM event
 		WHERE instance_id = ?
 		AND id NOT IN (
 		    SELECT id FROM (
-		        SELECT id FROM events
+		        SELECT id FROM event
 		        WHERE instance_id = ?
 		        ORDER BY timestamp DESC
 		        LIMIT ?
@@ -52,7 +52,7 @@ public class EventPersistenceStore {
 		""";
 
 	private static final String SELECT_DISTINCT_INSTANCE_IDS_SQL = """
-		SELECT DISTINCT instance_id FROM events
+		SELECT DISTINCT instance_id FROM event
 		""";
 
 	private final JdbcTemplate jdbc;
@@ -102,7 +102,7 @@ public class EventPersistenceStore {
 			ps.setString(5, json);
 		});
 
-		LOGGER.info("Batch persisted {} events", events.size());
+		LOGGER.debug("Batch persisted {} events", events.size());
 	}
 
 	/**

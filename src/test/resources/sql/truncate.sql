@@ -1,1 +1,1 @@
-truncate table events;
+truncate table event;
