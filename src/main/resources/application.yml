@@ -12,6 +12,9 @@ spring:
         enabled: false
     boot:
         admin:
+            client:
+                # Prevent spring boot admin client from registering itself
+                enabled: false
             ui:
                 title: ${config.ui.title}
                 brand: ${config.ui.brand}
