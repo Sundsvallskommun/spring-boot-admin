@@ -56,10 +56,13 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 			return;
 		}
 
-		// Group events by instance ID
+		// Group events by instance ID, sorted by version
 		events.stream()
 			.collect(java.util.stream.Collectors.groupingBy(InstanceEvent::getInstance))
-			.forEach((instanceId, instanceEvents) -> eventCache.put(instanceId, new java.util.ArrayList<>(instanceEvents)));
+			.forEach((instanceId, instanceEvents) -> {
+				instanceEvents.sort(java.util.Comparator.comparingLong(InstanceEvent::getVersion));
+				eventCache.put(instanceId, new java.util.ArrayList<>(instanceEvents));
+			});
 
 		LOGGER.info("Loaded {} events for {} instances from database", events.size(), eventCache.size());
 	}
