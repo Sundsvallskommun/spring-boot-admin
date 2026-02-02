@@ -9,7 +9,9 @@ import java.util.Objects;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 /**
  * Handles database operations for InstanceEvent persistence.
@@ -32,6 +34,10 @@ public class EventPersistenceStore {
 
 	private static final String SELECT_ALL_SQL = """
 		SELECT event_json FROM event ORDER BY timestamp ASC
+		""";
+
+	private static final String SELECT_BY_INSTANCE_SQL = """
+		SELECT event_json FROM event WHERE instance_id = ? ORDER BY version ASC
 		""";
 
 	private static final String DELETE_OLDER_THAN_SQL = """
@@ -84,6 +90,11 @@ public class EventPersistenceStore {
 
 	/**
 	 * Save multiple events in a batch.
+	 * <p>
+	 * Handles duplicate key exceptions gracefully - if another pod has already persisted
+	 * an event with the same (instance_id, version), we skip it since the event was
+	 * already processed. This supports rolling restarts where multiple pods may receive
+	 * the same events.
 	 *
 	 * @param events the events to persist
 	 */
@@ -92,17 +103,20 @@ public class EventPersistenceStore {
 			return;
 		}
 
-		jdbc.batchUpdate(INSERT_SQL, events, events.size(), (ps, event) -> {
-			final var json = serializer.serialize(event);
-			final var eventType = event.getClass().getSimpleName();
-			ps.setString(1, event.getInstance().getValue());
-			ps.setString(2, eventType);
-			ps.setLong(3, event.getVersion());
-			ps.setTimestamp(4, Timestamp.from(event.getTimestamp()));
-			ps.setString(5, json);
-		});
-
-		LOGGER.debug("Batch persisted {} events", events.size());
+		try {
+			jdbc.batchUpdate(INSERT_SQL, events, events.size(), (ps, event) -> {
+				final var json = serializer.serialize(event);
+				final var eventType = event.getClass().getSimpleName();
+				ps.setString(1, event.getInstance().getValue());
+				ps.setString(2, eventType);
+				ps.setLong(3, event.getVersion());
+				ps.setTimestamp(4, Timestamp.from(event.getTimestamp()));
+				ps.setString(5, json);
+			});
+			LOGGER.debug("Batch persisted {} events", events.size());
+		} catch (final DuplicateKeyException e) {
+			LOGGER.debug("Skipping duplicate events (already persisted by another pod): {}", e.getMessage());
+		}
 	}
 
 	/**
@@ -125,6 +139,33 @@ public class EventPersistenceStore {
 
 		} catch (final Exception e) {
 			LOGGER.warn("Could not load events from database (may be first run): {}", e.getMessage());
+			return List.of();
+		}
+	}
+
+	/**
+	 * Load all events for a specific instance from the database ordered by version ascending.
+	 *
+	 * @param  instanceId the instance ID to load events for
+	 * @return            list of persisted events for the instance (excludes null from failed deserializations)
+	 */
+	@ExcludeFromJacocoGeneratedCoverageReport
+	public List<InstanceEvent> loadByInstanceId(@NonNull final InstanceId instanceId) {
+		try {
+			final var events = jdbc.query(
+				SELECT_BY_INSTANCE_SQL,
+				(rs, _) -> serializer.deserialize(rs.getString("event_json")),
+				instanceId.getValue());
+
+			final var validEvents = events.stream()
+				.filter(Objects::nonNull)
+				.toList();
+
+			LOGGER.debug("Loaded {} events for instance {} from database", validEvents.size(), instanceId);
+			return validEvents;
+
+		} catch (final Exception e) {
+			LOGGER.warn("Could not load events for instance {}: {}", instanceId, e.getMessage());
 			return List.of();
 		}
 	}

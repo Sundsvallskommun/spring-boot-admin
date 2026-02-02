@@ -8,7 +8,8 @@ create table if not exists event
     event_json  longtext     not null,
     created_at  timestamp default current_timestamp,
     index idx_timestamp (timestamp),
-    index idx_instance_timestamp (instance_id, timestamp)
+    index idx_instance_timestamp (instance_id, timestamp),
+    constraint uk_instance_version unique (instance_id, version)
 );
 
 create table shedlock
