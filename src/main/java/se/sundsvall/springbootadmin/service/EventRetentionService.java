@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.springbootadmin.configuration.EventJournalProperties;
 import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
@@ -11,6 +12,7 @@ import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
 /**
  * Service responsible for cleaning up old events based on retention policy.
  */
+@Service
 public class EventRetentionService {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EventRetentionService.class);

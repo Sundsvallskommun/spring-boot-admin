@@ -7,10 +7,12 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * Handles JSON serialization and deserialization of InstanceEvent objects.
  */
+@Component
 public class EventSerializer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EventSerializer.class);

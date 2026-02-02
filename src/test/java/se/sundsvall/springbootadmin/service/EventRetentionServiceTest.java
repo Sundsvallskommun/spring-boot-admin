@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,10 +52,12 @@ class EventRetentionServiceTest {
 
 	@Test
 	void cleanupDeletesExcessEventsPerInstance() {
+		final var instanceId1 = InstanceId.of(UUID.randomUUID().toString());
+		final var instanceId2 = InstanceId.of(UUID.randomUUID().toString());
+		final var instanceId3 = InstanceId.of(UUID.randomUUID().toString());
+
 		final var instanceIds = List.of(
-			InstanceId.of("id-1"),
-			InstanceId.of("id-2"),
-			InstanceId.of("id-3"));
+			instanceId1, instanceId2, instanceId3);
 
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(instanceIds);
@@ -62,9 +65,9 @@ class EventRetentionServiceTest {
 
 		retentionService.cleanup();
 
-		verify(persistenceStore).deleteExcessEventsForInstance(eq(InstanceId.of("id-1")), eq(1000));
-		verify(persistenceStore).deleteExcessEventsForInstance(eq(InstanceId.of("id-2")), eq(1000));
-		verify(persistenceStore).deleteExcessEventsForInstance(eq(InstanceId.of("id-3")), eq(1000));
+		verify(persistenceStore).deleteExcessEventsForInstance(instanceId1, 1000);
+		verify(persistenceStore).deleteExcessEventsForInstance(instanceId2, 1000);
+		verify(persistenceStore).deleteExcessEventsForInstance(instanceId3, 1000);
 	}
 
 	@Test

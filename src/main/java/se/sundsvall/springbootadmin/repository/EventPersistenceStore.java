@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 /**
@@ -23,6 +24,7 @@ import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
  * (e.g. delete excess events per instance with subquery/LIMIT) would require native
  * SQL in a Spring Data repository regardless, making JdbcTemplate the simpler choice.
  */
+@Service
 public class EventPersistenceStore {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EventPersistenceStore.class);
@@ -85,7 +87,7 @@ public class EventPersistenceStore {
 			Timestamp.from(event.getTimestamp()),
 			json);
 
-		LOGGER.info("Persisted event: {} for instance: {}", eventType, event.getInstance());
+		LOGGER.debug("Persisted event: {} for instance: {}", eventType, event.getInstance());
 	}
 
 	/**
@@ -115,7 +117,7 @@ public class EventPersistenceStore {
 			});
 			LOGGER.debug("Batch persisted {} events", events.size());
 		} catch (final DuplicateKeyException e) {
-			LOGGER.debug("Skipping duplicate events (already persisted by another pod): {}", e.getMessage());
+			LOGGER.warn("Skipping duplicate events (already persisted by another pod): {}", e.getMessage());
 		}
 	}
 

@@ -1,6 +1,5 @@
 package se.sundsvall.springbootadmin.configuration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import de.codecentric.boot.admin.server.domain.entities.EventsourcingInstanceRepository;
 import de.codecentric.boot.admin.server.domain.entities.InstanceRepository;
@@ -13,34 +12,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.EventListener;
-import org.springframework.jdbc.core.JdbcTemplate;
 import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
-import se.sundsvall.springbootadmin.repository.EventSerializer;
 import se.sundsvall.springbootadmin.repository.JdbcEventStore;
-import se.sundsvall.springbootadmin.service.EventRetentionService;
 
 @Configuration
 @EnableConfigurationProperties(EventJournalProperties.class)
 public class PersistenceConfig {
-
-	@Bean
-	public EventSerializer eventSerializer(final ObjectMapper objectMapper) {
-		return new EventSerializer(objectMapper);
-	}
-
-	@Bean
-	public EventPersistenceStore eventPersistenceStore(
-		final JdbcTemplate jdbcTemplate,
-		final EventSerializer eventSerializer) {
-		return new EventPersistenceStore(jdbcTemplate, eventSerializer);
-	}
-
-	@Bean
-	public EventRetentionService eventRetentionService(
-		final EventPersistenceStore eventPersistenceStore,
-		final EventJournalProperties properties) {
-		return new EventRetentionService(eventPersistenceStore, properties);
-	}
 
 	@Bean
 	@Primary

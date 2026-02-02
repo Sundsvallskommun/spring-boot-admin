@@ -1,18 +1,10 @@
 package se.sundsvall.springbootadmin.configuration;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "spring.boot.admin.journal")
 public record EventJournalProperties(
-	int retentionDays,
-	int maxEventsPerInstance) {
-
-	public EventJournalProperties {
-		if (retentionDays <= 0) {
-			retentionDays = 30;
-		}
-		if (maxEventsPerInstance <= 0) {
-			maxEventsPerInstance = 1000;
-		}
-	}
+	@DefaultValue("30") int retentionDays,
+	@DefaultValue("1000") int maxEventsPerInstance) {
 }

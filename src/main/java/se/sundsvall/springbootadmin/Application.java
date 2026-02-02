@@ -19,6 +19,9 @@ import static org.springframework.boot.SpringApplication.run;
 @EnableScheduling
 @ExcludeFromJacocoGeneratedCoverageReport
 public class Application {
+
+	private Application() {}
+
 	static void main(String... args) {
 		run(Application.class, args);
 	}

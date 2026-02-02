@@ -1,51 +1,23 @@
 package se.sundsvall.springbootadmin.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import se.sundsvall.springbootadmin.Application;
 
+@SpringBootTest(classes = Application.class, webEnvironment = RANDOM_PORT)
+@ActiveProfiles("junit")
 class EventJournalPropertiesTest {
 
-	@Test
-	void createWithValidValues() {
-		final var properties = new EventJournalProperties(14, 500);
-
-		assertThat(properties.retentionDays()).isEqualTo(14);
-		assertThat(properties.maxEventsPerInstance()).isEqualTo(500);
-	}
+	@Autowired
+	private EventJournalProperties properties;
 
 	@Test
-	void createWithZeroRetentionDaysUsesDefault() {
-		final var properties = new EventJournalProperties(0, 1000);
-
-		assertThat(properties.retentionDays()).isEqualTo(30);
-	}
-
-	@Test
-	void createWithNegativeRetentionDaysUsesDefault() {
-		final var properties = new EventJournalProperties(-5, 1000);
-
-		assertThat(properties.retentionDays()).isEqualTo(30);
-	}
-
-	@Test
-	void createWithZeroMaxEventsPerInstanceUsesDefault() {
-		final var properties = new EventJournalProperties(30, 0);
-
-		assertThat(properties.maxEventsPerInstance()).isEqualTo(1000);
-	}
-
-	@Test
-	void createWithNegativeMaxEventsPerInstanceUsesDefault() {
-		final var properties = new EventJournalProperties(30, -100);
-
-		assertThat(properties.maxEventsPerInstance()).isEqualTo(1000);
-	}
-
-	@Test
-	void createWithAllDefaultValues() {
-		final var properties = new EventJournalProperties(0, 0);
-
+	void testProperties() {
 		assertThat(properties.retentionDays()).isEqualTo(30);
 		assertThat(properties.maxEventsPerInstance()).isEqualTo(1000);
 	}

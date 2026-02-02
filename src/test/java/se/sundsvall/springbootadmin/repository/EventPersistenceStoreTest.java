@@ -13,6 +13,7 @@ import de.codecentric.boot.admin.server.domain.values.StatusInfo;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
@@ -39,7 +40,7 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void saveAndLoadEvent() {
-		final var event = createRegisteredEvent("id-1", "service-1");
+		final var event = createRegisteredEvent(UUID.randomUUID().toString(), "service-1");
 
 		store.save(event);
 		final var loaded = store.loadAll();
@@ -51,9 +52,9 @@ class EventPersistenceStoreTest {
 	@Test
 	void saveBatchAndLoadEvents() {
 		final var events = List.<InstanceEvent>of(
-			createRegisteredEvent("id-1", "service-1"),
-			createRegisteredEvent("id-2", "service-2"),
-			createRegisteredEvent("id-3", "service-3"));
+			createRegisteredEvent(UUID.randomUUID().toString(), "service-1"),
+			createRegisteredEvent(UUID.randomUUID().toString(), "service-2"),
+			createRegisteredEvent(UUID.randomUUID().toString(), "service-3"));
 
 		store.saveBatch(events);
 		final var loaded = store.loadAll();
@@ -71,12 +72,13 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void loadAllReturnsEventsInTimestampOrder() {
-		// Create events with explicit timestamps to ensure deterministic ordering
+		// Create events with explicit timestamps to ensure correct ordering
 		// Each event for the same instance must have a unique version number
 		final var baseTime = Instant.now();
-		final var event1 = createRegisteredEventWithTimestamp("id-1", "service-1", 1L, baseTime);
-		final var event2 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofUp(), 2L, baseTime.plusSeconds(1));
-		final var event3 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofDown(), 3L, baseTime.plusSeconds(2));
+		final var uniqueId = UUID.randomUUID().toString();
+		final var event1 = createRegisteredEventWithTimestamp(uniqueId, "service-1", 1L, baseTime);
+		final var event2 = createStatusChangedEventWithTimestamp(uniqueId, StatusInfo.ofUp(), 2L, baseTime.plusSeconds(1));
+		final var event3 = createStatusChangedEventWithTimestamp(uniqueId, StatusInfo.ofDown(), 3L, baseTime.plusSeconds(2));
 
 		// Save in reverse order to verify sorting
 		store.save(event3);
@@ -104,36 +106,37 @@ class EventPersistenceStoreTest {
 	@Test
 	void deleteOlderThanRemovesOldEvents() {
 		// Save an event
-		store.save(createRegisteredEvent("id-1", "service-1"));
+		store.save(createRegisteredEvent(UUID.randomUUID().toString(), "service-1"));
 
 		// Delete events older than 1 day in the future (should delete all)
 		final var cutoff = Instant.now().plus(1, ChronoUnit.DAYS);
 		final var deleted = store.deleteOlderThan(cutoff);
 
-		assertThat(deleted).isEqualTo(1);
+		assertThat(deleted).isOne();
 		assertThat(store.loadAll()).isEmpty();
 	}
 
 	@Test
 	void deleteOlderThanKeepsRecentEvents() {
 		// Save an event
-		store.save(createRegisteredEvent("id-1", "service-1"));
+		store.save(createRegisteredEvent(UUID.randomUUID().toString(), "service-1"));
 
 		// Delete events older than 1 day in the past (should keep all)
 		final var cutoff = Instant.now().minus(1, ChronoUnit.DAYS);
 		final var deleted = store.deleteOlderThan(cutoff);
 
-		assertThat(deleted).isEqualTo(0);
+		assertThat(deleted).isZero();
 		assertThat(store.loadAll()).hasSize(1);
 	}
 
 	@Test
 	void deleteExcessEventsForInstanceKeepsNewestEvents() {
-		final var instanceId = InstanceId.of("id-1");
+		final var uniqueId = UUID.randomUUID().toString();
+		final var instanceId = InstanceId.of(uniqueId);
 
 		// Save 5 events for the same instance with unique version numbers
 		for (var i = 1; i <= 5; i++) {
-			store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), i));
+			store.save(createStatusChangedEvent(uniqueId, StatusInfo.ofUp(), i));
 		}
 
 		// Keep only 2 events
@@ -145,33 +148,37 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void deleteExcessEventsForInstanceDoesNothingWhenBelowLimit() {
-		final var instanceId = InstanceId.of("id-1");
+		final var uniqueId = UUID.randomUUID().toString();
+		final var instanceId = InstanceId.of(uniqueId);
 
 		// Save 2 events with unique version numbers
-		store.save(createRegisteredEvent("id-1", "service-1", 1L));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
+		store.save(createRegisteredEvent(uniqueId, "service-1", 1L));
+		store.save(createStatusChangedEvent(uniqueId, StatusInfo.ofUp(), 2L));
 
 		// Keep 5 events (more than we have)
 		final var deleted = store.deleteExcessEventsForInstance(instanceId, 5);
 
-		assertThat(deleted).isEqualTo(0);
+		assertThat(deleted).isZero();
 		assertThat(store.loadAll()).hasSize(2);
 	}
 
 	@Test
 	void getDistinctInstanceIdsReturnsUniqueIds() {
 		// Save events for multiple instances with unique version numbers per instance
-		store.save(createRegisteredEvent("id-1", "service-1", 1L));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
-		store.save(createRegisteredEvent("id-2", "service-2", 1L));
-		store.save(createRegisteredEvent("id-3", "service-3", 1L));
+		final var uniqueId1 = UUID.randomUUID().toString();
+		final var uniqueId2 = UUID.randomUUID().toString();
+		final var uniqueId3 = UUID.randomUUID().toString();
+		store.save(createRegisteredEvent(uniqueId1, "service-1", 1L));
+		store.save(createStatusChangedEvent(uniqueId1, StatusInfo.ofUp(), 2L));
+		store.save(createRegisteredEvent(uniqueId2, "service-2", 1L));
+		store.save(createRegisteredEvent(uniqueId3, "service-3", 1L));
 
 		final var instanceIds = store.getDistinctInstanceIds();
 
 		assertThat(instanceIds).hasSize(3);
 		assertThat(instanceIds)
 			.extracting(InstanceId::getValue)
-			.containsExactlyInAnyOrder("id-1", "id-2", "id-3");
+			.containsExactlyInAnyOrder(uniqueId1, uniqueId2, uniqueId3);
 	}
 
 	@Test
@@ -183,13 +190,15 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void loadByInstanceIdReturnsEventsForInstance() {
+		final var uniqueId1 = UUID.randomUUID().toString();
+		final var uniqueId2 = UUID.randomUUID().toString();
 		// Save events for multiple instances
-		store.save(createRegisteredEvent("id-1", "service-1", 1L));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofDown(), 3L));
-		store.save(createRegisteredEvent("id-2", "service-2", 1L));
+		store.save(createRegisteredEvent(uniqueId1, "service-1", 1L));
+		store.save(createStatusChangedEvent(uniqueId1, StatusInfo.ofUp(), 2L));
+		store.save(createStatusChangedEvent(uniqueId1, StatusInfo.ofDown(), 3L));
+		store.save(createRegisteredEvent(uniqueId2, "service-2", 1L));
 
-		final var events = store.loadByInstanceId(InstanceId.of("id-1"));
+		final var events = store.loadByInstanceId(InstanceId.of(uniqueId1));
 
 		assertThat(events).hasSize(3);
 		// Events should be ordered by version ascending
@@ -207,12 +216,13 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void saveBatchHandlesDuplicateKeyGracefully() {
+		final var uniqueId = UUID.randomUUID().toString();
 		// Save an event
-		store.save(createRegisteredEvent("id-1", "service-1", 1L));
+		store.save(createRegisteredEvent(uniqueId, "service-1", 1L));
 
 		// Try to save the same event again via batch (same instance_id + version)
 		final var duplicateEvents = List.<InstanceEvent>of(
-			createRegisteredEvent("id-1", "service-1", 1L));
+			createRegisteredEvent(uniqueId, "service-1", 1L));
 
 		// Should not throw - duplicate key exception should be handled gracefully
 		store.saveBatch(duplicateEvents);
@@ -224,8 +234,9 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void loadAllFiltersOutNullFromCorruptData() {
+		final var uniqueId = UUID.randomUUID().toString();
 		// Insert valid event
-		store.save(createRegisteredEvent("id-1", "service-1"));
+		store.save(createRegisteredEvent(uniqueId, "service-1"));
 
 		// Insert corrupt JSON directly into database
 		jdbcTemplate.update(
@@ -236,7 +247,7 @@ class EventPersistenceStoreTest {
 
 		// Should only return the valid event, filtering out the corrupt one
 		assertThat(loaded).hasSize(1);
-		assertThat(loaded.getFirst().getInstance().getValue()).isEqualTo("id-1");
+		assertThat(loaded.getFirst().getInstance().getValue()).isEqualTo(uniqueId);
 	}
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name) {
@@ -245,18 +256,14 @@ class EventPersistenceStoreTest {
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name, final long version) {
 		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://localhost:8080").build();
+		final var registration = Registration.create(name, "http://cannot.reach.this.url:8080").build();
 		return new InstanceRegisteredEvent(instanceId, version, registration);
 	}
 
 	private InstanceRegisteredEvent createRegisteredEventWithTimestamp(final String id, final String name, final long version, final Instant timestamp) {
 		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://localhost:8080").build();
+		final var registration = Registration.create(name, "http://cannot.reach.this.url:8080").build();
 		return new InstanceRegisteredEvent(instanceId, version, timestamp, registration);
-	}
-
-	private InstanceStatusChangedEvent createStatusChangedEvent(final String id, final StatusInfo statusInfo) {
-		return createStatusChangedEvent(id, statusInfo, 1L);
 	}
 
 	private InstanceStatusChangedEvent createStatusChangedEvent(final String id, final StatusInfo statusInfo, final long version) {

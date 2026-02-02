@@ -3,6 +3,7 @@ package se.sundsvall.springbootadmin.repository;
 import de.codecentric.boot.admin.server.domain.events.InstanceEvent;
 import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import de.codecentric.boot.admin.server.eventstore.ConcurrentMapEventStore;
+import de.codecentric.boot.admin.server.eventstore.OptimisticLockingException;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -10,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 /**
  * JDBC-backed implementation of InstanceEventStore that persists events to the database
@@ -103,7 +103,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 				// Publish events to subscribers (like StatusUpdateTrigger)
 				this.publish(events);
-			} catch (final IllegalArgumentException e) {
+			} catch (final OptimisticLockingException e) {
 				// Version conflict - another pod may have processed this event
 				handleVersionConflict(events, e);
 			}
@@ -119,13 +119,12 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 	 * 2. Update the in-memory cache with the fresh data
 	 * 3. Retry appending - if it still fails, the event was already processed
 	 */
-	@ExcludeFromJacocoGeneratedCoverageReport
-	private void handleVersionConflict(final List<InstanceEvent> events, final IllegalArgumentException originalException) {
+	private void handleVersionConflict(final List<InstanceEvent> events, final OptimisticLockingException originalException) {
 		if (events.isEmpty()) {
 			return;
 		}
 
-		final var instanceId = events.get(0).getInstance();
+		final var instanceId = events.getFirst().getInstance();
 		LOGGER.info("Version conflict for instance {}, refreshing from database: {}",
 			instanceId, originalException.getMessage());
 
@@ -147,7 +146,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 				this.publish(events);
 				LOGGER.info("Successfully appended events after cache refresh for instance {}", instanceId);
 			}
-		} catch (final IllegalArgumentException retryException) {
+		} catch (final OptimisticLockingException retryException) {
 			// Event was already processed by another pod - this is expected during rolling restarts
 			LOGGER.info("Event already processed for instance {} (version conflict on retry): {}",
 				instanceId, retryException.getMessage());

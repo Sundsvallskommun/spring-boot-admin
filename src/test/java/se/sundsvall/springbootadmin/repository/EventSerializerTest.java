@@ -12,6 +12,7 @@ import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import de.codecentric.boot.admin.server.domain.values.Registration;
 import de.codecentric.boot.admin.server.domain.values.StatusInfo;
 import de.codecentric.boot.admin.server.utils.jackson.AdminServerModule;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,8 @@ class EventSerializerTest {
 
 	private EventSerializer serializer;
 
+	private static final String FAKE_URL = "http://cannot.reach.this.url:8080";
+
 	@BeforeEach
 	void setUp() {
 		final var objectMapper = new ObjectMapper();
@@ -33,31 +36,33 @@ class EventSerializerTest {
 
 	@Test
 	void serializeInstanceRegisteredEvent() {
-		final var event = createRegisteredEvent("test-id", "test-service");
+		final var uniqueId = UUID.randomUUID().toString();
+		final var event = createRegisteredEvent(uniqueId, "test-service");
 
 		final var json = serializer.serialize(event);
 
 		assertThat(json)
-			.contains("\"instance\":\"test-id\"")
+			.contains("\"instance\":\"" + uniqueId + "\"")
 			.contains("\"registration\":")
 			.contains("\"type\":\"REGISTERED\"");
 	}
 
 	@Test
 	void deserializeInstanceRegisteredEvent() {
-		final var original = createRegisteredEvent("test-id", "test-service");
+		final var uniqueId = UUID.randomUUID().toString();
+		final var original = createRegisteredEvent(uniqueId, "test-service");
 		final var json = serializer.serialize(original);
 
 		final var result = serializer.deserialize(json);
 
-		assertThat(result).isNotNull();
-		assertThat(result).isInstanceOf(InstanceRegisteredEvent.class);
+		assertThat(result).isNotNull()
+			.isInstanceOf(InstanceRegisteredEvent.class);
 		assertThat(result.getInstance()).isEqualTo(original.getInstance());
 	}
 
-	@ParameterizedTest
+	@ParameterizedTest(name = "{0}")
 	@MethodSource("eventTypes")
-	void deserializeEventTypes(final InstanceEvent event, final String description) {
+	void deserializeEventTypes(final String testName, final InstanceEvent event) {
 		final var json = serializer.serialize(event);
 
 		final var result = serializer.deserialize(json);
@@ -68,19 +73,19 @@ class EventSerializerTest {
 	}
 
 	static Stream<Arguments> eventTypes() {
-		final var instanceId = InstanceId.of("test-id");
-		final var registration = Registration.create("test-service", "http://localhost:8080").build();
+		final var instanceId = InstanceId.of(UUID.randomUUID().toString());
+		final var registration = Registration.create("test-service", FAKE_URL).build();
 
 		return Stream.of(
 			Arguments.of(
-				new InstanceRegisteredEvent(instanceId, 1L, registration),
-				"InstanceRegisteredEvent"),
+				"InstanceRegisteredEvent",
+				new InstanceRegisteredEvent(instanceId, 1L, registration)),
 			Arguments.of(
-				new InstanceStatusChangedEvent(instanceId, 1L, StatusInfo.ofUp()),
-				"InstanceStatusChangedEvent with UP status"),
+				"InstanceStatusChangedEvent with UP status",
+				new InstanceStatusChangedEvent(instanceId, 1L, StatusInfo.ofUp())),
 			Arguments.of(
-				new InstanceStatusChangedEvent(instanceId, 1L, StatusInfo.ofDown()),
-				"InstanceStatusChangedEvent with DOWN status"));
+				"InstanceStatusChangedEvent with DOWN status",
+				new InstanceStatusChangedEvent(instanceId, 1L, StatusInfo.ofDown())));
 	}
 
 	@Test
@@ -101,7 +106,7 @@ class EventSerializerTest {
 	void serializeWithBrokenObjectMapperThrowsException() {
 		// Create a serializer with a broken ObjectMapper (no AdminServerModule)
 		final var brokenSerializer = new EventSerializer(new ObjectMapper());
-		final var event = createRegisteredEvent("test-id", "test-service");
+		final var event = createRegisteredEvent(UUID.randomUUID().toString(), "test-service");
 
 		assertThatExceptionOfType(EventSerializationException.class)
 			.isThrownBy(() -> brokenSerializer.serialize(event));
@@ -109,7 +114,7 @@ class EventSerializerTest {
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name) {
 		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://localhost:8080").build();
+		final var registration = Registration.create(name, FAKE_URL).build();
 		return new InstanceRegisteredEvent(instanceId, 1L, registration);
 	}
 }
