@@ -72,10 +72,11 @@ class EventPersistenceStoreTest {
 	@Test
 	void loadAllReturnsEventsInTimestampOrder() {
 		// Create events with explicit timestamps to ensure deterministic ordering
+		// Each event for the same instance must have a unique version number
 		final var baseTime = Instant.now();
-		final var event1 = createRegisteredEventWithTimestamp("id-1", "service-1", baseTime);
-		final var event2 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofUp(), baseTime.plusSeconds(1));
-		final var event3 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofDown(), baseTime.plusSeconds(2));
+		final var event1 = createRegisteredEventWithTimestamp("id-1", "service-1", 1L, baseTime);
+		final var event2 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofUp(), 2L, baseTime.plusSeconds(1));
+		final var event3 = createStatusChangedEventWithTimestamp("id-1", StatusInfo.ofDown(), 3L, baseTime.plusSeconds(2));
 
 		// Save in reverse order to verify sorting
 		store.save(event3);
@@ -130,9 +131,9 @@ class EventPersistenceStoreTest {
 	void deleteExcessEventsForInstanceKeepsNewestEvents() {
 		final var instanceId = InstanceId.of("id-1");
 
-		// Save 5 events for the same instance
-		for (int i = 0; i < 5; i++) {
-			store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp()));
+		// Save 5 events for the same instance with unique version numbers
+		for (var i = 1; i <= 5; i++) {
+			store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), i));
 		}
 
 		// Keep only 2 events
@@ -146,9 +147,9 @@ class EventPersistenceStoreTest {
 	void deleteExcessEventsForInstanceDoesNothingWhenBelowLimit() {
 		final var instanceId = InstanceId.of("id-1");
 
-		// Save 2 events
-		store.save(createRegisteredEvent("id-1", "service-1"));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp()));
+		// Save 2 events with unique version numbers
+		store.save(createRegisteredEvent("id-1", "service-1", 1L));
+		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
 
 		// Keep 5 events (more than we have)
 		final var deleted = store.deleteExcessEventsForInstance(instanceId, 5);
@@ -159,11 +160,11 @@ class EventPersistenceStoreTest {
 
 	@Test
 	void getDistinctInstanceIdsReturnsUniqueIds() {
-		// Save events for multiple instances
-		store.save(createRegisteredEvent("id-1", "service-1"));
-		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp()));
-		store.save(createRegisteredEvent("id-2", "service-2"));
-		store.save(createRegisteredEvent("id-3", "service-3"));
+		// Save events for multiple instances with unique version numbers per instance
+		store.save(createRegisteredEvent("id-1", "service-1", 1L));
+		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
+		store.save(createRegisteredEvent("id-2", "service-2", 1L));
+		store.save(createRegisteredEvent("id-3", "service-3", 1L));
 
 		final var instanceIds = store.getDistinctInstanceIds();
 
@@ -178,6 +179,47 @@ class EventPersistenceStoreTest {
 		final var instanceIds = store.getDistinctInstanceIds();
 
 		assertThat(instanceIds).isEmpty();
+	}
+
+	@Test
+	void loadByInstanceIdReturnsEventsForInstance() {
+		// Save events for multiple instances
+		store.save(createRegisteredEvent("id-1", "service-1", 1L));
+		store.save(createStatusChangedEvent("id-1", StatusInfo.ofUp(), 2L));
+		store.save(createStatusChangedEvent("id-1", StatusInfo.ofDown(), 3L));
+		store.save(createRegisteredEvent("id-2", "service-2", 1L));
+
+		final var events = store.loadByInstanceId(InstanceId.of("id-1"));
+
+		assertThat(events).hasSize(3);
+		// Events should be ordered by version ascending
+		assertThat(events.get(0).getVersion()).isEqualTo(1L);
+		assertThat(events.get(1).getVersion()).isEqualTo(2L);
+		assertThat(events.get(2).getVersion()).isEqualTo(3L);
+	}
+
+	@Test
+	void loadByInstanceIdReturnsEmptyForUnknownInstance() {
+		final var events = store.loadByInstanceId(InstanceId.of("unknown"));
+
+		assertThat(events).isEmpty();
+	}
+
+	@Test
+	void saveBatchHandlesDuplicateKeyGracefully() {
+		// Save an event
+		store.save(createRegisteredEvent("id-1", "service-1", 1L));
+
+		// Try to save the same event again via batch (same instance_id + version)
+		final var duplicateEvents = List.<InstanceEvent>of(
+			createRegisteredEvent("id-1", "service-1", 1L));
+
+		// Should not throw - duplicate key exception should be handled gracefully
+		store.saveBatch(duplicateEvents);
+
+		// Original event should still be there
+		final var loaded = store.loadAll();
+		assertThat(loaded).hasSize(1);
 	}
 
 	@Test
@@ -198,24 +240,32 @@ class EventPersistenceStoreTest {
 	}
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name) {
-		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://localhost:8080").build();
-		return new InstanceRegisteredEvent(instanceId, 1L, registration);
+		return createRegisteredEvent(id, name, 1L);
 	}
 
-	private InstanceRegisteredEvent createRegisteredEventWithTimestamp(final String id, final String name, final Instant timestamp) {
+	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name, final long version) {
 		final var instanceId = InstanceId.of(id);
 		final var registration = Registration.create(name, "http://localhost:8080").build();
-		return new InstanceRegisteredEvent(instanceId, 1L, timestamp, registration);
+		return new InstanceRegisteredEvent(instanceId, version, registration);
+	}
+
+	private InstanceRegisteredEvent createRegisteredEventWithTimestamp(final String id, final String name, final long version, final Instant timestamp) {
+		final var instanceId = InstanceId.of(id);
+		final var registration = Registration.create(name, "http://localhost:8080").build();
+		return new InstanceRegisteredEvent(instanceId, version, timestamp, registration);
 	}
 
 	private InstanceStatusChangedEvent createStatusChangedEvent(final String id, final StatusInfo statusInfo) {
-		final var instanceId = InstanceId.of(id);
-		return new InstanceStatusChangedEvent(instanceId, 1L, statusInfo);
+		return createStatusChangedEvent(id, statusInfo, 1L);
 	}
 
-	private InstanceStatusChangedEvent createStatusChangedEventWithTimestamp(final String id, final StatusInfo statusInfo, final Instant timestamp) {
+	private InstanceStatusChangedEvent createStatusChangedEvent(final String id, final StatusInfo statusInfo, final long version) {
 		final var instanceId = InstanceId.of(id);
-		return new InstanceStatusChangedEvent(instanceId, 1L, timestamp, statusInfo);
+		return new InstanceStatusChangedEvent(instanceId, version, statusInfo);
+	}
+
+	private InstanceStatusChangedEvent createStatusChangedEventWithTimestamp(final String id, final StatusInfo statusInfo, final long version, final Instant timestamp) {
+		final var instanceId = InstanceId.of(id);
+		return new InstanceStatusChangedEvent(instanceId, version, timestamp, statusInfo);
 	}
 }

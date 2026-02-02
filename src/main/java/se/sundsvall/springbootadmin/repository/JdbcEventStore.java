@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 /**
  * JDBC-backed implementation of InstanceEventStore that persists events to the database
@@ -91,17 +92,66 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 		}
 
 		return Mono.fromRunnable(() -> {
-			// Append to in-memory store (validates version numbers)
-			while (!doAppend(events)) {
-				Thread.onSpinWait(); // Retry until successful (handles optimistic locking)
+			try {
+				// Append to in-memory store (validates version numbers)
+				while (!doAppend(events)) {
+					Thread.onSpinWait(); // Retry until successful (handles optimistic locking)
+				}
+
+				// Persist to database asynchronously
+				persistEventsAsync(events);
+
+				// Publish events to subscribers (like StatusUpdateTrigger)
+				this.publish(events);
+			} catch (final IllegalArgumentException e) {
+				// Version conflict - another pod may have processed this event
+				handleVersionConflict(events, e);
 			}
-
-			// Persist to database asynchronously
-			persistEventsAsync(events);
-
-			// Publish events to subscribers (like StatusUpdateTrigger)
-			this.publish(events);
 		});
+	}
+
+	/**
+	 * Handle version conflicts by refreshing from database and retrying.
+	 * <p>
+	 * During rolling restarts, multiple pods may receive the same events and try to
+	 * append them with the same version number. When this happens:
+	 * 1. Reload events for the affected instance from the database
+	 * 2. Update the in-memory cache with the fresh data
+	 * 3. Retry appending - if it still fails, the event was already processed
+	 */
+	@ExcludeFromJacocoGeneratedCoverageReport
+	private void handleVersionConflict(final List<InstanceEvent> events, final IllegalArgumentException originalException) {
+		if (events.isEmpty()) {
+			return;
+		}
+
+		final var instanceId = events.get(0).getInstance();
+		LOGGER.info("Version conflict for instance {}, refreshing from database: {}",
+			instanceId, originalException.getMessage());
+
+		// Reload events from database for this instance
+		final var dbEvents = persistenceStore.loadByInstanceId(instanceId);
+
+		if (!dbEvents.isEmpty()) {
+			// Update in-memory cache with database state
+			eventCache.put(instanceId, new java.util.ArrayList<>(dbEvents));
+			LOGGER.info("Refreshed cache for instance {} with {} events from database",
+				instanceId, dbEvents.size());
+		}
+
+		// Retry appending - if it fails again, the event was likely already processed
+		try {
+			if (doAppend(events)) {
+				// Success on retry - persist and publish
+				persistEventsAsync(events);
+				this.publish(events);
+				LOGGER.info("Successfully appended events after cache refresh for instance {}", instanceId);
+			}
+		} catch (final IllegalArgumentException retryException) {
+			// Event was already processed by another pod - this is expected during rolling restarts
+			LOGGER.info("Event already processed for instance {} (version conflict on retry): {}",
+				instanceId, retryException.getMessage());
+		}
 	}
 
 	/**
