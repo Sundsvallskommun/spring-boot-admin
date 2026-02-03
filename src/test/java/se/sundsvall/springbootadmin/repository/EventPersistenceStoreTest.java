@@ -256,13 +256,13 @@ class EventPersistenceStoreTest {
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name, final long version) {
 		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://cannot.reach.this.url:8080").build();
+		final var registration = Registration.create(name, "http://localhost:8080").build();
 		return new InstanceRegisteredEvent(instanceId, version, registration);
 	}
 
 	private InstanceRegisteredEvent createRegisteredEventWithTimestamp(final String id, final String name, final long version, final Instant timestamp) {
 		final var instanceId = InstanceId.of(id);
-		final var registration = Registration.create(name, "http://cannot.reach.this.url:8080").build();
+		final var registration = Registration.create(name, "http://localhost:8080").build();
 		return new InstanceRegisteredEvent(instanceId, version, timestamp, registration);
 	}
 

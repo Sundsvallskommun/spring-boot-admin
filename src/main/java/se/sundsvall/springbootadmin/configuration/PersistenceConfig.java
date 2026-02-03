@@ -19,6 +19,12 @@ import se.sundsvall.springbootadmin.repository.JdbcEventStore;
 @EnableConfigurationProperties(EventJournalProperties.class)
 public class PersistenceConfig {
 
+	private final EventJournalProperties journalProperties;
+
+	public PersistenceConfig(final EventJournalProperties journalProperties) {
+		this.journalProperties = journalProperties;
+	}
+
 	@Bean
 	@Primary
 	public JdbcEventStore instanceEventStore(
@@ -36,10 +42,13 @@ public class PersistenceConfig {
 	/**
 	 * After the application is fully started and all subscribers (like StatusUpdateTrigger) are wired,
 	 * publish stored events so that status checks are triggered for all known instances.
+	 * This behavior can be disabled via spring.boot.admin.journal.publish-on-startup=false.
 	 */
 	@EventListener(ApplicationReadyEvent.class)
 	public void onApplicationReady(final ApplicationReadyEvent event) {
-		event.getApplicationContext().getBean(JdbcEventStore.class).publishStoredEvents();
+		if (journalProperties.publishOnStartup()) {
+			event.getApplicationContext().getBean(JdbcEventStore.class).publishStoredEvents();
+		}
 	}
 
 	/**

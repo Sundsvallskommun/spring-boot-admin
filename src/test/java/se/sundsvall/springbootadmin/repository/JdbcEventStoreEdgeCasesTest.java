@@ -1,6 +1,7 @@
 package se.sundsvall.springbootadmin.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -14,6 +15,7 @@ import de.codecentric.boot.admin.server.domain.values.Registration;
 import de.codecentric.boot.admin.server.domain.values.StatusInfo;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,7 @@ class JdbcEventStoreEdgeCasesTest {
 	class VersionConflictHandling {
 
 		@Test
-		void handlesVersionConflictByRefreshingFromDatabase() throws InterruptedException {
+		void handlesVersionConflictByRefreshingFromDatabase() {
 			when(mockPersistenceStore.loadAll()).thenReturn(List.of());
 
 			final var store = new JdbcEventStore(100, mockPersistenceStore);
@@ -54,7 +56,9 @@ class JdbcEventStoreEdgeCasesTest {
 				.verifyComplete();
 
 			// Wait for async persistence to complete before setting up new mocks
-			Thread.sleep(1000);
+			await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> {
+				verify(mockPersistenceStore).saveBatch(List.of(event1));
+			});
 
 			// Another pod already persisted version 2
 			final var event2FromDb = createStatusChangedEvent(instanceId, StatusInfo.ofUp(), 2L);
@@ -71,7 +75,7 @@ class JdbcEventStoreEdgeCasesTest {
 		}
 
 		@Test
-		void conflictWithEmptyDatabaseRefreshStillWorks() throws InterruptedException {
+		void conflictWithEmptyDatabaseRefreshStillWorks() {
 			when(mockPersistenceStore.loadAll()).thenReturn(List.of());
 
 			final var store = new JdbcEventStore(100, mockPersistenceStore);
@@ -83,7 +87,9 @@ class JdbcEventStoreEdgeCasesTest {
 				.verifyComplete();
 
 			// Wait for async persistence to complete before setting up new mocks
-			Thread.sleep(1000);
+			await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> {
+				verify(mockPersistenceStore).saveBatch(List.of(event1));
+			});
 
 			// Database returns empty (maybe events were cleaned up)
 			when(mockPersistenceStore.loadByInstanceId(instanceId))

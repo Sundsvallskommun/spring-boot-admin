@@ -37,7 +37,7 @@ class JdbcEventStoreTest {
 	@Autowired
 	private JdbcEventStore eventStore;
 
-	private static final String FAKE_URL = "http://cannot.reach.this.url:8080";
+	private static final String FAKE_URL = "http://localhost:8080";
 
 	@BeforeEach
 	void setUp() {

@@ -8,6 +8,10 @@ config:
   ui:
     title: Test Spring Boot Admin
 spring:
+  boot:
+    admin:
+      journal:
+        publish-on-startup: false
   datasource:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     url: jdbc:tc:mariadb:10.6.14:///test

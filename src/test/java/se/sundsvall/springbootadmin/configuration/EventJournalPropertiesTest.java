@@ -20,5 +20,6 @@ class EventJournalPropertiesTest {
 	void testProperties() {
 		assertThat(properties.retentionDays()).isEqualTo(30);
 		assertThat(properties.maxEventsPerInstance()).isEqualTo(1000);
+		assertThat(properties.publishOnStartup()).isFalse();
 	}
 }

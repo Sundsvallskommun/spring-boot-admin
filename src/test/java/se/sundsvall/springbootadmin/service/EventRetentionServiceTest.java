@@ -34,7 +34,7 @@ class EventRetentionServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		final var properties = new EventJournalProperties(30, 1000);
+		final var properties = new EventJournalProperties(30, 1000, true);
 		retentionService = new EventRetentionService(persistenceStore, properties);
 	}
 
@@ -84,7 +84,7 @@ class EventRetentionServiceTest {
 	@Test
 	void cleanupWithCustomRetentionDays() {
 		// Use custom properties with 7 days retention
-		final var properties = new EventJournalProperties(7, 500);
+		final var properties = new EventJournalProperties(7, 500, true);
 		final var service = new EventRetentionService(persistenceStore, properties);
 
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
