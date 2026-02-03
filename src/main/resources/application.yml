@@ -38,7 +38,7 @@ spring:
           enabled: ${config.slack.enabled}
           webhook-url: ${config.slack.webhook-url}
           ignore-changes: UNKNOWN:*
-          message: '*#{instance.registration.name}* (#{instance.id}) is *#{event.statusInfo.status}*'
+          message: '*#{#instance.registration.name}* (#{#instance.id}) is *#{#event.statusInfo.status}*'
   security:
     # Enable or disble security (e.g. authentication). Default if missing: true
     enabled: false
