@@ -1,10 +1,12 @@
 package se.sundsvall.springbootadmin.repository;
 
 import de.codecentric.boot.admin.server.domain.events.InstanceEvent;
+import de.codecentric.boot.admin.server.domain.events.InstanceRegisteredEvent;
 import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import de.codecentric.boot.admin.server.eventstore.ConcurrentMapEventStore;
 import de.codecentric.boot.admin.server.eventstore.OptimisticLockingException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
@@ -66,23 +68,43 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 			});
 
 		LOGGER.info("Loaded {} events for {} instances from database", events.size(), eventCache.size());
+
+		// Log warning for instances without REGISTERED events (orphaned)
+		final var orphanedCount = eventCache.entrySet().stream()
+			.filter(entry -> entry.getValue().stream()
+				.noneMatch(InstanceRegisteredEvent.class::isInstance))
+			.count();
+
+		if (orphanedCount > 0) {
+			LOGGER.warn("Found {} instances with orphaned events - these will not receive status checks", orphanedCount);
+		}
 	}
 
 	/**
-	 * Publishes all stored events to subscribers (e.g. StatusUpdateTrigger).
+	 * Publishes stored REGISTERED events to subscribers (e.g. StatusUpdateTrigger).
+	 * Only REGISTERED events are published to:
+	 * 1. Trigger status checks for known instances
+	 * 2. Avoid spamming notifiers with historical STATUS_CHANGED events
 	 * Must be called after Spring context is ready and subscribers are wired.
 	 */
 	public void publishStoredEvents() {
-		final var allEvents = eventCache.values().stream()
-			.flatMap(List::stream)
+		// Only publish the latest REGISTERED event per instance
+		// This triggers status checks without spamming Slack with historical events
+		final var registeredEvents = eventCache.values().stream()
+			.map(events -> events.stream()
+				.filter(InstanceRegisteredEvent.class::isInstance)
+				.reduce((first, second) -> second)  // Get latest REGISTERED event
+				.orElse(null))
+			.filter(Objects::nonNull)
 			.toList();
 
-		if (allEvents.isEmpty()) {
+		if (registeredEvents.isEmpty()) {
+			LOGGER.info("No REGISTERED events to publish");
 			return;
 		}
 
-		LOGGER.info("Publishing {} stored events to trigger status checks", allEvents.size());
-		this.publish(allEvents);
+		LOGGER.info("Publishing {} REGISTERED events to trigger status checks", registeredEvents.size());
+		this.publish(registeredEvents);
 	}
 
 	@Override

@@ -37,8 +37,10 @@ spring:
         slack:
           enabled: ${config.slack.enabled}
           webhook-url: ${config.slack.webhook-url}
-          ignore-changes: UNKNOWN:*
-          message: '*#{#instance.registration.name}* (#{#instance.id}) is *#{#event.statusInfo.status}*'
+          # Static title avoids SpEL evaluation issues when instance is null (race condition on startup)
+          title: 'Microservice alerts'
+          # SpEL variables: instance (may be null), event, lastStatus - must use null-safe access
+          message: '*#{instance?.registration?.name ?: "Unknown"}* (#{instance?.id ?: event.instance}) is *#{event.statusInfo.status}*'
   security:
     # Enable or disble security (e.g. authentication). Default if missing: true
     enabled: false
@@ -51,6 +53,10 @@ spring:
         all-namespaces: true
         service-labels:
           spring-boot: true
+logging:
+  level:
+    # Debug logging for notifiers to diagnose Slack integration
+    de.codecentric.boot.admin.server.notify: DEBUG
 scheduler:
   journal:
     retention:
