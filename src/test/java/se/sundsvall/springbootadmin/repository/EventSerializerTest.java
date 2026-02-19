@@ -1,10 +1,5 @@
 package se.sundsvall.springbootadmin.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.codecentric.boot.admin.server.domain.events.InstanceEvent;
 import de.codecentric.boot.admin.server.domain.events.InstanceRegisteredEvent;
 import de.codecentric.boot.admin.server.domain.events.InstanceStatusChangedEvent;
@@ -19,6 +14,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class EventSerializerTest {
 
@@ -28,10 +32,10 @@ class EventSerializerTest {
 
 	@BeforeEach
 	void setUp() {
-		final var objectMapper = new ObjectMapper();
-		objectMapper.registerModule(new JavaTimeModule());
-		objectMapper.registerModule(new AdminServerModule(new String[0]));
-		serializer = new EventSerializer(objectMapper);
+		final var mapper = JsonMapper.builder()
+			.addModule(new AdminServerModule(new String[0]))
+			.build();
+		serializer = new EventSerializer(mapper);
 	}
 
 	@Test
@@ -103,13 +107,29 @@ class EventSerializerTest {
 	}
 
 	@Test
-	void serializeWithBrokenObjectMapperThrowsException() {
-		// Create a serializer with a broken ObjectMapper (no AdminServerModule)
-		final var brokenSerializer = new EventSerializer(new ObjectMapper());
+	void serializeWhenObjectMapperThrowsJacksonException() {
+		final var mockMapper = mock(ObjectMapper.class);
+		when(mockMapper.writeValueAsString(any())).thenThrow(mock(JacksonException.class));
+		final var brokenSerializer = new EventSerializer(mockMapper);
 		final var event = createRegisteredEvent(UUID.randomUUID().toString(), "test-service");
+		var instance = event.getInstance();
+		System.out.println(instance);
 
 		assertThatExceptionOfType(EventSerializationException.class)
-			.isThrownBy(() -> brokenSerializer.serialize(event));
+			.isThrownBy(() -> brokenSerializer.serialize(event))
+			.withMessageContaining("Failed to serialize event")
+			.withCauseInstanceOf(JacksonException.class);
+	}
+
+	@Test
+	void deserializeWithoutAdminServerModuleReturnsNull() {
+		// Serialize with a proper mapper, then try to deserialize without AdminServerModule
+		final var event = createRegisteredEvent(UUID.randomUUID().toString(), "test-service");
+		final var json = serializer.serialize(event);
+
+		final var brokenSerializer = new EventSerializer(JsonMapper.builder().build());
+
+		assertThat(brokenSerializer.deserialize(json)).isNull();
 	}
 
 	private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name) {

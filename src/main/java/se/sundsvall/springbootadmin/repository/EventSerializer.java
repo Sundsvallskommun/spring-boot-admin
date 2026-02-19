@@ -1,13 +1,13 @@
 package se.sundsvall.springbootadmin.repository;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.codecentric.boot.admin.server.domain.events.InstanceEvent;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Handles JSON serialization and deserialization of InstanceEvent objects.
@@ -34,7 +34,7 @@ public class EventSerializer {
 	public String serialize(@NonNull final InstanceEvent event) {
 		try {
 			return objectMapper.writeValueAsString(event);
-		} catch (final JsonProcessingException e) {
+		} catch (final JacksonException e) {
 			throw new EventSerializationException("Failed to serialize event: " + event.getInstance(), e);
 		}
 	}
@@ -49,7 +49,7 @@ public class EventSerializer {
 	public InstanceEvent deserialize(@NonNull final String json) {
 		try {
 			return objectMapper.readValue(json, InstanceEvent.class);
-		} catch (final JsonProcessingException e) {
+		} catch (final JacksonException e) {
 			LOGGER.error("Failed to deserialize event: {}", e.getMessage());
 			return null;
 		}

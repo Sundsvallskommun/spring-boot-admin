@@ -1,11 +1,5 @@
 package se.sundsvall.springbootadmin.configuration;
 
-import static java.util.UUID.randomUUID;
-import static org.springframework.http.HttpMethod.DELETE;
-import static org.springframework.http.HttpMethod.GET;
-import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.security.crypto.factory.PasswordEncoderFactories.createDelegatingPasswordEncoder;
-
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import java.time.Duration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -13,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -37,37 +32,34 @@ public class ApplicationSecurityConfiguration {
 
 	/**
 	 * The "Security disabled" bean.
-	 * 
 	 * When this bean is activated then security is disabled (no authentication required).
 	 * This bean is activated by setting the application property "spring.security.enabled" to false.
 	 * 
-	 * @param  http
-	 * @return           SecurityFilterChain
-	 * @throws Exception
+	 * @param  http the HttpSecurity to configure
+	 * @return      SecurityFilterChain
 	 */
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false", matchIfMissing = false)
-	SecurityFilterChain securityDisabled(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityDisabled(HttpSecurity http) {
 		http
 			.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-			.csrf(csrf -> csrf.disable())
+			.csrf(AbstractHttpConfigurer::disable)
 			.headers(headers -> headers.frameOptions(FrameOptionsConfig::disable));
 		return http.build();
 	}
 
 	/**
 	 * The "Security enabled" bean.
-	 *
 	 * When this bean is activated then security is enabled.
 	 * This bean is activated by setting the application property "spring.security.enabled" to false.
 	 * 
-	 * @param  http
-	 * @return           SecurityFilterChain
-	 * @throws Exception
+	 * @param  http        the HttpSecurity to configure
+	 * @param  adminServer the AdminServerProperties to get the admin context path
+	 * @return             SecurityFilterChain
 	 */
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
-	SecurityFilterChain securityEnabled(HttpSecurity http, AdminServerProperties adminServer) throws Exception {
+	SecurityFilterChain securityEnabled(HttpSecurity http, AdminServerProperties adminServer) {
 
 		var loginSuccessHandler = new SavedRequestAwareAuthenticationSuccessHandler();
 		loginSuccessHandler.setTargetUrlParameter("redirectTo");
