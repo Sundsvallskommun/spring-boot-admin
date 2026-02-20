@@ -6,19 +6,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import se.sundsvall.springbootadmin.Application;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(classes = Application.class, webEnvironment = RANDOM_PORT)
 @ActiveProfiles("junit")
-class AdminUserTest {
+class EventJournalPropertiesTest {
 
 	@Autowired
-	private AdminUser adminUser;
+	private EventJournalProperties properties;
 
 	@Test
 	void testProperties() {
-		assertThat(adminUser.name()).isEqualTo("test-username");
-		assertThat(adminUser.password()).isEqualTo("test-password");
+		assertThat(properties.retentionDays()).isEqualTo(30);
+		assertThat(properties.maxEventsPerInstance()).isEqualTo(1000);
+		assertThat(properties.publishOnStartup()).isFalse();
 	}
 }
