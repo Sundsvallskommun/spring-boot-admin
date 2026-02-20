@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import se.sundsvall.springbootadmin.configuration.EventJournalProperties;
 import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
+import se.sundsvall.springbootadmin.repository.JdbcEventStore;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,9 @@ class EventRetentionServiceTest {
 	@Mock
 	private EventPersistenceStore persistenceStore;
 
+	@Mock
+	private JdbcEventStore eventStore;
+
 	@Captor
 	private ArgumentCaptor<Instant> cutoffCaptor;
 
@@ -35,7 +39,7 @@ class EventRetentionServiceTest {
 	@BeforeEach
 	void setUp() {
 		final var properties = new EventJournalProperties(30, 1000, true);
-		retentionService = new EventRetentionService(persistenceStore, properties);
+		retentionService = new EventRetentionService(persistenceStore, properties, eventStore);
 	}
 
 	@Test
@@ -48,6 +52,7 @@ class EventRetentionServiceTest {
 		verify(persistenceStore).deleteOlderThan(cutoffCaptor.capture());
 		final var cutoff = cutoffCaptor.getValue();
 		assertThat(cutoff).isBefore(Instant.now());
+		verify(eventStore).reloadFromDatabase();
 	}
 
 	@Test
@@ -68,6 +73,7 @@ class EventRetentionServiceTest {
 		verify(persistenceStore).deleteExcessEventsForInstance(instanceId1, 1000);
 		verify(persistenceStore).deleteExcessEventsForInstance(instanceId2, 1000);
 		verify(persistenceStore).deleteExcessEventsForInstance(instanceId3, 1000);
+		verify(eventStore).reloadFromDatabase();
 	}
 
 	@Test
@@ -85,7 +91,7 @@ class EventRetentionServiceTest {
 	void cleanupWithCustomRetentionDays() {
 		// Use custom properties with 7 days retention
 		final var properties = new EventJournalProperties(7, 500, true);
-		final var service = new EventRetentionService(persistenceStore, properties);
+		final var service = new EventRetentionService(persistenceStore, properties, eventStore);
 
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(List.of(InstanceId.of("id-1")));

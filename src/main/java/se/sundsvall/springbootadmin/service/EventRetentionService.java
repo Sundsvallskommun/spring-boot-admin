@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.springbootadmin.configuration.EventJournalProperties;
 import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
+import se.sundsvall.springbootadmin.repository.JdbcEventStore;
 
 /**
  * Service responsible for cleaning up old events based on retention policy.
@@ -19,10 +20,12 @@ public class EventRetentionService {
 
 	private final EventPersistenceStore persistenceStore;
 	private final EventJournalProperties properties;
+	private final JdbcEventStore eventStore;
 
-	public EventRetentionService(final EventPersistenceStore persistenceStore, final EventJournalProperties properties) {
+	public EventRetentionService(final EventPersistenceStore persistenceStore, final EventJournalProperties properties, final JdbcEventStore eventStore) {
 		this.persistenceStore = persistenceStore;
 		this.properties = properties;
+		this.eventStore = eventStore;
 	}
 
 	/**
@@ -53,6 +56,9 @@ public class EventRetentionService {
 		if (totalDeletedByCount > 0) {
 			LOGGER.info("Deleted {} excess events (max {} per instance)", totalDeletedByCount, properties.maxEventsPerInstance());
 		}
+
+		// Reload in-memory cache to evict deleted events
+		eventStore.reloadFromDatabase();
 
 		LOGGER.info("Event retention cleanup completed");
 	}

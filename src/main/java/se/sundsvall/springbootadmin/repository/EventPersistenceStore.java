@@ -35,7 +35,7 @@ public class EventPersistenceStore {
 		""";
 
 	private static final String SELECT_ALL_SQL = """
-		SELECT event_json FROM event ORDER BY timestamp ASC
+		SELECT event_json FROM event ORDER BY instance_id, version ASC
 		""";
 
 	private static final String SELECT_BY_INSTANCE_SQL = """

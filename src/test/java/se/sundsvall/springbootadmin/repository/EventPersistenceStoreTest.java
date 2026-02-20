@@ -71,7 +71,7 @@ class EventPersistenceStoreTest {
 	}
 
 	@Test
-	void loadAllReturnsEventsInTimestampOrder() {
+	void loadAllReturnsEventsOrderedByInstanceIdAndVersion() {
 		// Create events with explicit timestamps to ensure correct ordering
 		// Each event for the same instance must have a unique version number
 		final var baseTime = Instant.now();
@@ -88,12 +88,10 @@ class EventPersistenceStoreTest {
 		final var loaded = store.loadAll();
 
 		assertThat(loaded).hasSize(3);
-		// Events should be ordered by timestamp ascending
-		assertThat(loaded.get(0)).isInstanceOf(InstanceRegisteredEvent.class);
-		assertThat(loaded.get(1)).isInstanceOf(InstanceStatusChangedEvent.class);
-		assertThat(((InstanceStatusChangedEvent) loaded.get(1)).getStatusInfo().getStatus()).isEqualTo("UP");
-		assertThat(loaded.get(2)).isInstanceOf(InstanceStatusChangedEvent.class);
-		assertThat(((InstanceStatusChangedEvent) loaded.get(2)).getStatusInfo().getStatus()).isEqualTo("DOWN");
+		// Events should be ordered by version ascending (all same instance_id)
+		assertThat(loaded.get(0).getVersion()).isEqualTo(1L);
+		assertThat(loaded.get(1).getVersion()).isEqualTo(2L);
+		assertThat(loaded.get(2).getVersion()).isEqualTo(3L);
 	}
 
 	@Test

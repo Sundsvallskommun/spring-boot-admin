@@ -5,6 +5,7 @@ import de.codecentric.boot.admin.server.domain.events.InstanceRegisteredEvent;
 import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import de.codecentric.boot.admin.server.eventstore.ConcurrentMapEventStore;
 import de.codecentric.boot.admin.server.eventstore.OptimisticLockingException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,7 +65,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 			.collect(java.util.stream.Collectors.groupingBy(InstanceEvent::getInstance))
 			.forEach((instanceId, instanceEvents) -> {
 				instanceEvents.sort(java.util.Comparator.comparingLong(InstanceEvent::getVersion));
-				eventCache.put(instanceId, new java.util.ArrayList<>(instanceEvents));
+				eventCache.put(instanceId, Collections.synchronizedList(new java.util.ArrayList<>(instanceEvents)));
 			});
 
 		LOGGER.info("Loaded {} events for {} instances from database", events.size(), eventCache.size());
@@ -116,9 +117,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 		return Mono.fromRunnable(() -> {
 			try {
 				// Append to in-memory store (validates version numbers)
-				while (!doAppend(events)) {
-					Thread.onSpinWait(); // Retry until successful (handles optimistic locking)
-				}
+				doAppend(events);
 
 				// Persist to database asynchronously
 				persistEventsAsync(events);
@@ -155,7 +154,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 		if (!dbEvents.isEmpty()) {
 			// Update in-memory cache with database state
-			eventCache.put(instanceId, new java.util.ArrayList<>(dbEvents));
+			eventCache.put(instanceId, Collections.synchronizedList(new java.util.ArrayList<>(dbEvents)));
 			LOGGER.info("Refreshed cache for instance {} with {} events from database",
 				instanceId, dbEvents.size());
 		}
@@ -187,6 +186,15 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 				LOGGER.error("Failed to persist {} events to database: {}", events.size(), e.getMessage());
 			}
 		}).subscribeOn(Schedulers.boundedElastic()).subscribe();
+	}
+
+	/**
+	 * Reloads the in-memory cache from the database.
+	 * Used after retention cleanup to evict deleted events from memory.
+	 */
+	public void reloadFromDatabase() {
+		eventCache.clear();
+		loadEventsFromDatabase();
 	}
 
 	/**

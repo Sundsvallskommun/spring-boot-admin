@@ -287,6 +287,35 @@ class JdbcEventStoreTest {
 				.verifyComplete();
 		}
 
+		@Test
+		void reloadFromDatabaseClearsAndReloadsCache() {
+			final var uniqueId = UUID.randomUUID().toString();
+			// Given: Store initially loaded with 1 event
+			final var mockPersistenceStore = mock(EventPersistenceStore.class);
+			final var initialEvents = List.<InstanceEvent>of(
+				createRegisteredEvent(uniqueId, "service-1", 1L));
+			when(mockPersistenceStore.loadAll()).thenReturn(initialEvents);
+
+			final var store = new JdbcEventStore(100, mockPersistenceStore);
+
+			StepVerifier.create(store.findAll())
+				.expectNextCount(1)
+				.verifyComplete();
+
+			// When: Database now has 2 events and we reload
+			final var updatedEvents = List.<InstanceEvent>of(
+				createRegisteredEvent(uniqueId, "service-1", 1L),
+				createStatusChangedEvent(uniqueId, StatusInfo.ofUp(), 2L));
+			when(mockPersistenceStore.loadAll()).thenReturn(updatedEvents);
+
+			store.reloadFromDatabase();
+
+			// Then: Cache reflects the updated database state
+			StepVerifier.create(store.findAll())
+				.expectNextCount(2)
+				.verifyComplete();
+		}
+
 		private InstanceRegisteredEvent createRegisteredEvent(final String id, final String name, final long version) {
 			final var instanceId = InstanceId.of(id);
 			final var registration = Registration.create(name, FAKE_URL).build();
