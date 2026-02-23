@@ -5,11 +5,15 @@ import de.codecentric.boot.admin.server.domain.events.InstanceRegisteredEvent;
 import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import de.codecentric.boot.admin.server.eventstore.ConcurrentMapEventStore;
 import de.codecentric.boot.admin.server.eventstore.OptimisticLockingException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
@@ -62,10 +66,10 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 		// Group events by instance ID, sorted by version
 		events.stream()
-			.collect(java.util.stream.Collectors.groupingBy(InstanceEvent::getInstance))
+			.collect(Collectors.groupingBy(InstanceEvent::getInstance))
 			.forEach((instanceId, instanceEvents) -> {
-				instanceEvents.sort(java.util.Comparator.comparingLong(InstanceEvent::getVersion));
-				eventCache.put(instanceId, Collections.synchronizedList(new java.util.ArrayList<>(instanceEvents)));
+				instanceEvents.sort(Comparator.comparingLong(InstanceEvent::getVersion));
+				eventCache.put(instanceId, Collections.synchronizedList(new ArrayList<>(instanceEvents)));
 			});
 
 		LOGGER.info("Loaded {} events for {} instances from database", events.size(), eventCache.size());
@@ -154,7 +158,7 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 		if (!dbEvents.isEmpty()) {
 			// Update in-memory cache with database state
-			eventCache.put(instanceId, Collections.synchronizedList(new java.util.ArrayList<>(dbEvents)));
+			eventCache.put(instanceId, Collections.synchronizedList(new ArrayList<>(dbEvents)));
 			LOGGER.info("Refreshed cache for instance {} with {} events from database",
 				instanceId, dbEvents.size());
 		}
@@ -190,11 +194,42 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 	/**
 	 * Reloads the in-memory cache from the database.
-	 * Used after retention cleanup to evict deleted events from memory.
+	 * Avoids clearing the cache first, which would cause a brief window where
+	 * the repository sees zero instances.
 	 */
 	public void reloadFromDatabase() {
-		eventCache.clear();
-		loadEventsFromDatabase();
+		LOGGER.info("Reloading events from database...");
+		final var events = persistenceStore.loadAll();
+
+		// Build new state in a temporary map
+		final var newState = events.stream()
+			.collect(Collectors.groupingBy(InstanceEvent::getInstance));
+
+		// Determine keys to remove (present in cache but not in DB)
+		final var keysToRemove = new HashSet<>(eventCache.keySet());
+		keysToRemove.removeAll(newState.keySet());
+
+		// Update existing and add new entries, but only if the DB isn't behind
+		// the cache (a concurrent append() may have added events since our loadAll())
+		newState.forEach((instanceId, instanceEvents) -> {
+			instanceEvents.sort(Comparator.comparingLong(InstanceEvent::getVersion));
+			final var dbMaxVersion = instanceEvents.getLast().getVersion();
+			final var cachedEvents = eventCache.get(instanceId);
+			if (cachedEvents != null) {
+				final var cacheMaxVersion = cachedEvents.getLast().getVersion();
+				if (cacheMaxVersion > dbMaxVersion) {
+					LOGGER.debug("Skipping reload for instance {} - cache version {} is ahead of DB version {}",
+						instanceId, cacheMaxVersion, dbMaxVersion);
+					return;
+				}
+			}
+			eventCache.put(instanceId, Collections.synchronizedList(new ArrayList<>(instanceEvents)));
+		});
+
+		// Remove instances no longer in DB
+		keysToRemove.forEach(eventCache::remove);
+
+		LOGGER.info("Reloaded {} events for {} instances from database", events.size(), newState.size());
 	}
 
 	/**

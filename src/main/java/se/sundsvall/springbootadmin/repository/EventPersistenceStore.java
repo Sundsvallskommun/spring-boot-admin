@@ -117,7 +117,14 @@ public class EventPersistenceStore {
 			});
 			LOGGER.debug("Batch persisted {} events", events.size());
 		} catch (final DuplicateKeyException e) {
-			LOGGER.warn("Skipping duplicate events (already persisted by another pod): {}", e.getMessage());
+			LOGGER.warn("Batch insert had duplicates, falling back to individual inserts: {}", e.getMessage());
+			for (final var event : events) {
+				try {
+					save(event);
+				} catch (final DuplicateKeyException _) {
+					// Already persisted by another pod
+				}
+			}
 		}
 	}
 

@@ -231,6 +231,25 @@ class EventPersistenceStoreTest {
 	}
 
 	@Test
+	void saveBatchWithDuplicatesPersistsNonDuplicates() {
+		final var uniqueId1 = UUID.randomUUID().toString();
+		final var uniqueId2 = UUID.randomUUID().toString();
+
+		// Save one event directly
+		store.save(createRegisteredEvent(uniqueId1, "service-1", 1L));
+
+		// Batch contains the duplicate + a new event
+		final var events = List.<InstanceEvent>of(
+			createRegisteredEvent(uniqueId1, "service-1", 1L),
+			createRegisteredEvent(uniqueId2, "service-2", 1L));
+
+		store.saveBatch(events);
+
+		final var loaded = store.loadAll();
+		assertThat(loaded).hasSize(2);
+	}
+
+	@Test
 	void loadAllFiltersOutNullFromCorruptData() {
 		final var uniqueId = UUID.randomUUID().toString();
 		// Insert valid event

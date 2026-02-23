@@ -51,7 +51,7 @@ public class ApplicationSecurityConfiguration {
 	/**
 	 * The "Security enabled" bean.
 	 * When this bean is activated then security is enabled.
-	 * This bean is activated by setting the application property "spring.security.enabled" to false.
+	 * This bean is activated by setting the application property "spring.security.enabled" to true.
 	 * 
 	 * @param  http        the HttpSecurity to configure
 	 * @param  adminServer the AdminServerProperties to get the admin context path

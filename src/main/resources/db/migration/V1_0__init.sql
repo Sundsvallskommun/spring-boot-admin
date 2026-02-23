@@ -12,7 +12,7 @@ create table if not exists event
     constraint uk_instance_version unique (instance_id, version)
 );
 
-create table shedlock
+create table if not exists shedlock
 (
     name       varchar(64)  not null,
     lock_until timestamp(3) not null default current_timestamp(3) on update current_timestamp(3),
