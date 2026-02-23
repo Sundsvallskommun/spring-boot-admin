@@ -1,40 +1,66 @@
 logbook:
-    excluded:
-        paths: /**
+  excluded:
+    paths: /**
 openapi:
-    enabled: false
+  enabled: false
 server:
-    forward-headers-strategy: framework
+  forward-headers-strategy: framework
 spring:
-    application:
-        name: spring-boot-admin
-    boot:
-        admin:
-            ui:
-                title: ${config.ui.title}
-                brand: ${config.ui.brand}
-                remember-me-enabled: false
-            monitor:
-                # Time interval to check the status of instances (in ms).
-                status-interval: 30000
-                # Lifetime of status. The status won’t be updated as long the last status isn’t expired (in ms).
-                status-lifetime: 120000
-            notify:
-                # Slack integration
-                slack:
-                    enabled: ${config.slack.enabled}
-                    webhook-url: ${config.slack.webhook-url}
-                    ignore-changes: UNKNOWN:*
-                    message: '*#{instance.registration.name}* (#{instance.id}) is *#{event.statusInfo.status}*'
-    security:
-        # Enable or disble security (e.g. authentication). Default if missing: true
+  application:
+    name: spring-boot-admin
+  flyway:
+    enabled: false
+  boot:
+    admin:
+      client:
+        # Prevent spring boot admin client from registering itself
         enabled: false
-        user:
-            name: ${config.security.name}
-            password: ${config.security.password}
-    cloud:
-        kubernetes:
-            discovery:
-                all-namespaces: true
-                service-labels:
-                    spring-boot: true
+      ui:
+        title: ${config.ui.title}
+        brand: ${config.ui.brand}
+        remember-me-enabled: false
+      monitor:
+        # Time interval to check the status of instances (in ms).
+        status-interval: 30000
+        # Lifetime of status. The status won't be updated as long the last status isn't expired (in ms).
+        status-lifetime: 120000
+      journal:
+        retention-days: 30
+        max-events-per-instance: 1000
+      discovery:
+        # Exclude SBA from monitoring itself — if SBA is down, it can't display its own health anyway,
+        # and self-discovery causes version conflicts during rolling restarts in OpenShift.
+        ignored-services:
+          - spring-boot-admin
+      notify:
+        # Slack integration
+        slack:
+          enabled: ${config.slack.enabled}
+          webhook-url: ${config.slack.webhook-url}
+          title: 'Microservice alerts'
+          message: '*#{name}* (#{id}) is *#{status}*'
+  security:
+    # Enable or disble security (e.g. authentication). Default if missing: true
+    enabled: false
+    user:
+      name: ${config.security.name}
+      password: ${config.security.password}
+  cloud:
+    kubernetes:
+      discovery:
+        all-namespaces: true
+        service-labels:
+          spring-boot: true
+logging:
+  level:
+    # Debug logging for notifiers to diagnose Slack integration
+    de.codecentric.boot.admin.server.notify: DEBUG
+scheduler:
+  journal:
+    retention:
+      cron:
+        # Run once a day at 02:00
+        expression: "0 0 2 * * *"
+      name: journal-retention-cleanup
+      lock-at-most-for: PT10M
+      maximum-execution-time: PT10M
