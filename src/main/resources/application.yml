@@ -37,10 +37,8 @@ spring:
         slack:
           enabled: ${config.slack.enabled}
           webhook-url: ${config.slack.webhook-url}
-          # Static title avoids SpEL evaluation issues when instance is null (race condition on startup)
           title: 'Microservice alerts'
-          # SpEL variables: instance (may be null), event, lastStatus - must use null-safe access
-          message: '*#{#instance?.registration?.name ?: "Unknown"}* (#{#instance?.id ?: #event.instance}) is *#{#event.statusInfo.status}*'
+          message: '*#{name}* (#{id}) is *#{status}*'
   security:
     # Enable or disble security (e.g. authentication). Default if missing: true
     enabled: false
