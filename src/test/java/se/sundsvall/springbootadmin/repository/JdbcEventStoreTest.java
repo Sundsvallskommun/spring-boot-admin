@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
@@ -263,7 +264,7 @@ class JdbcEventStoreTest {
 				.verifyComplete();
 
 			// Verify saveBatch was called
-			verify(mockPersistenceStore).saveBatch(anyList());
+			verify(mockPersistenceStore, timeout(1000)).saveBatch(anyList());
 		}
 
 		@Test
