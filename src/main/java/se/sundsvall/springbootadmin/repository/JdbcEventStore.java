@@ -93,12 +93,11 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 	 * Must be called after Spring context is ready and subscribers are wired.
 	 */
 	public void publishStoredEvents() {
-		// Only publish the latest REGISTERED event per instance
-		// This triggers status checks without spamming Slack with historical events
+		// Collect the latest REGISTERED event per instance
 		final var registeredEvents = eventCache.values().stream()
 			.map(events -> events.stream()
 				.filter(InstanceRegisteredEvent.class::isInstance)
-				.reduce((first, second) -> second)  // Get latest REGISTERED event
+				.reduce((first, second) -> second)
 				.orElse(null))
 			.filter(Objects::nonNull)
 			.toList();
