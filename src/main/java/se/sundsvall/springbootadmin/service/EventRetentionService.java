@@ -39,6 +39,11 @@ public class EventRetentionService {
 	public void cleanup() {
 		LOGGER.info("Starting event retention cleanup");
 
+		// Evict instances that have been OFFLINE longer than the eviction period
+		final var offlineCutoff = Instant.now().minus(properties.offlineEvictionDays(), ChronoUnit.DAYS);
+		final var evictedOffline = persistenceStore.deleteOfflineInstancesOlderThan(offlineCutoff);
+		LOGGER.info("Evicted {} events for instances OFFLINE longer than {} days", evictedOffline, properties.offlineEvictionDays());
+
 		// Delete events older than retention period
 		final var cutoff = Instant.now().minus(properties.retentionDays(), ChronoUnit.DAYS);
 		final var deletedByAge = persistenceStore.deleteOlderThan(cutoff);

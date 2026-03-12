@@ -59,6 +59,23 @@ public class EventPersistenceStore {
 		)
 		""";
 
+	private static final String DELETE_OFFLINE_INSTANCES_SQL = """
+		DELETE FROM event WHERE instance_id IN (
+		    SELECT instance_id FROM (
+		        SELECT e.instance_id
+		        FROM event e
+		        INNER JOIN (
+		            SELECT instance_id, MAX(timestamp) AS max_ts
+		            FROM event
+		            GROUP BY instance_id
+		        ) latest ON e.instance_id = latest.instance_id AND e.timestamp = latest.max_ts
+		        WHERE e.event_type = 'InstanceStatusChangedEvent'
+		        AND e.event_json LIKE '%"OFFLINE"%'
+		        AND e.timestamp < ?
+		    ) AS stale
+		)
+		""";
+
 	private static final String SELECT_DISTINCT_INSTANCE_IDS_SQL = """
 		SELECT DISTINCT instance_id FROM event
 		""";
@@ -207,6 +224,20 @@ public class EventPersistenceStore {
 		if (deleted > 0) {
 			LOGGER.info("Deleted {} excess events for instance: {}", deleted, instanceId);
 		}
+		return deleted;
+	}
+
+	/**
+	 * Delete all events for instances whose most recent event is an OFFLINE status change
+	 * older than the specified cutoff. This evicts stale instances that have been offline
+	 * for an extended period, stopping SBA from continuously polling dead endpoints.
+	 *
+	 * @param  cutoff the cutoff time - instances offline since before this will be evicted
+	 * @return        the number of deleted events
+	 */
+	public int deleteOfflineInstancesOlderThan(@NonNull final Instant cutoff) {
+		final var deleted = jdbc.update(DELETE_OFFLINE_INSTANCES_SQL, Timestamp.from(cutoff));
+		LOGGER.info("Deleted {} events for instances OFFLINE since before {}", deleted, cutoff);
 		return deleted;
 	}
 

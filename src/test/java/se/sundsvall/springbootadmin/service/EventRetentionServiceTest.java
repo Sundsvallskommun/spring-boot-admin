@@ -38,12 +38,13 @@ class EventRetentionServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		final var properties = new EventJournalProperties(30, 1000, true);
+		final var properties = new EventJournalProperties(30, 1000, true, 7);
 		retentionService = new EventRetentionService(persistenceStore, properties, eventStore);
 	}
 
 	@Test
 	void cleanupDeletesOldEvents() {
+		when(persistenceStore.deleteOfflineInstancesOlderThan(any())).thenReturn(0);
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(10);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(List.of());
 
@@ -56,6 +57,22 @@ class EventRetentionServiceTest {
 	}
 
 	@Test
+	void cleanupEvictsOfflineInstances() {
+		when(persistenceStore.deleteOfflineInstancesOlderThan(any())).thenReturn(5);
+		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
+		when(persistenceStore.getDistinctInstanceIds()).thenReturn(List.of());
+
+		retentionService.cleanup();
+
+		verify(persistenceStore).deleteOfflineInstancesOlderThan(cutoffCaptor.capture());
+		final var offlineCutoff = cutoffCaptor.getValue();
+		// Default offlineEvictionDays is 7, so cutoff should be ~7 days ago
+		assertThat(offlineCutoff)
+			.isBefore(Instant.now())
+			.isAfter(Instant.now().minus(8, java.time.temporal.ChronoUnit.DAYS));
+	}
+
+	@Test
 	void cleanupDeletesExcessEventsPerInstance() {
 		final var instanceId1 = InstanceId.of(UUID.randomUUID().toString());
 		final var instanceId2 = InstanceId.of(UUID.randomUUID().toString());
@@ -64,6 +81,7 @@ class EventRetentionServiceTest {
 		final var instanceIds = List.of(
 			instanceId1, instanceId2, instanceId3);
 
+		when(persistenceStore.deleteOfflineInstancesOlderThan(any())).thenReturn(0);
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(instanceIds);
 		when(persistenceStore.deleteExcessEventsForInstance(any(), anyInt())).thenReturn(5);
@@ -78,6 +96,7 @@ class EventRetentionServiceTest {
 
 	@Test
 	void cleanupHandlesEmptyInstanceList() {
+		when(persistenceStore.deleteOfflineInstancesOlderThan(any())).thenReturn(0);
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(List.of());
 
@@ -90,9 +109,10 @@ class EventRetentionServiceTest {
 	@Test
 	void cleanupWithCustomRetentionDays() {
 		// Use custom properties with 7 days retention
-		final var properties = new EventJournalProperties(7, 500, true);
+		final var properties = new EventJournalProperties(7, 500, true, 3);
 		final var service = new EventRetentionService(persistenceStore, properties, eventStore);
 
+		when(persistenceStore.deleteOfflineInstancesOlderThan(any())).thenReturn(0);
 		when(persistenceStore.deleteOlderThan(any())).thenReturn(0);
 		when(persistenceStore.getDistinctInstanceIds()).thenReturn(List.of(InstanceId.of("id-1")));
 		when(persistenceStore.deleteExcessEventsForInstance(any(), anyInt())).thenReturn(0);
