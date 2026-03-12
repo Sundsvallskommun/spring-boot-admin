@@ -62,6 +62,6 @@ public class PersistenceConfig {
 		final AdminServerProperties adminServerProperties) {
 		final var monitor = adminServerProperties.getMonitor();
 		return new StatusUpdateTrigger(statusUpdater, eventStore,
-			monitor.getStatusInterval(), monitor.getStatusLifetime(), monitor.getStatusLifetime());
+			monitor.getStatusInterval(), monitor.getStatusLifetime(), monitor.getStatusMaxBackoff());
 	}
 }

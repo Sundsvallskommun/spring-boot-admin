@@ -7,5 +7,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record EventJournalProperties(
 	@DefaultValue("30") int retentionDays,
 	@DefaultValue("1000") int maxEventsPerInstance,
-	@DefaultValue("true") boolean publishOnStartup) {
+	@DefaultValue("true") boolean publishOnStartup,
+	@DefaultValue("7") int offlineEvictionDays) {
 }
