@@ -67,8 +67,9 @@ class EventRetentionServiceTest {
 		verify(persistenceStore).deleteOfflineInstancesOlderThan(cutoffCaptor.capture());
 		final var offlineCutoff = cutoffCaptor.getValue();
 		// Default offlineEvictionDays is 7, so cutoff should be ~7 days ago
-		assertThat(offlineCutoff).isBefore(Instant.now());
-		assertThat(offlineCutoff).isAfter(Instant.now().minus(8, java.time.temporal.ChronoUnit.DAYS));
+		assertThat(offlineCutoff)
+			.isBefore(Instant.now())
+			.isAfter(Instant.now().minus(8, java.time.temporal.ChronoUnit.DAYS));
 	}
 
 	@Test
