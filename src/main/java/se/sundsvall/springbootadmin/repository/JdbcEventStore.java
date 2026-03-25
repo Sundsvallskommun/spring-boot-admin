@@ -26,6 +26,8 @@ import reactor.core.scheduler.Schedulers;
 public class JdbcEventStore extends ConcurrentMapEventStore {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcEventStore.class);
+	private static final int MAX_CAS_RETRIES = 100;
+	private static final String MAX_CAS_RETRIES_ERROR = "Failed to append events for instance %s after %d CAS retries";
 
 	private final EventPersistenceStore persistenceStore;
 	private final ConcurrentMap<InstanceId, List<InstanceEvent>> eventCache;
@@ -119,8 +121,15 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 		return Mono.fromRunnable(() -> {
 			try {
-				// Append to in-memory store (validates version numbers)
-				doAppend(events);
+				// Append to in-memory store (validates version numbers).
+				// doAppend uses CAS (compare-and-swap) and returns false on concurrent modification — retry until it succeeds.
+				var casRetries = 0;
+				while (!doAppend(events)) {
+					if (++casRetries >= MAX_CAS_RETRIES) {
+						throw new IllegalStateException(MAX_CAS_RETRIES_ERROR.formatted(events.getFirst().getInstance(), MAX_CAS_RETRIES));
+					}
+					Thread.onSpinWait();
+				}
 
 				// Persist to database asynchronously
 				persistEventsAsync(events);
@@ -164,12 +173,18 @@ public class JdbcEventStore extends ConcurrentMapEventStore {
 
 		// Retry appending - if it fails again, the event was likely already processed
 		try {
-			if (doAppend(events)) {
-				// Success on retry - persist and publish
-				persistEventsAsync(events);
-				this.publish(events);
-				LOGGER.info("Successfully appended events after cache refresh for instance {}", instanceId);
+			// Retry CAS loop, same as in append()
+			var casRetries = 0;
+			while (!doAppend(events)) {
+				if (++casRetries >= MAX_CAS_RETRIES) {
+					throw new IllegalStateException(MAX_CAS_RETRIES_ERROR.formatted(instanceId, MAX_CAS_RETRIES));
+				}
+				Thread.onSpinWait();
 			}
+			// Success on retry - persist and publish
+			persistEventsAsync(events);
+			this.publish(events);
+			LOGGER.info("Successfully appended events after cache refresh for instance {}", instanceId);
 		} catch (final OptimisticLockingException retryException) {
 			// Event was already processed by another pod - this is expected during rolling restarts
 			LOGGER.info("Event already processed for instance {} (version conflict on retry): {}",

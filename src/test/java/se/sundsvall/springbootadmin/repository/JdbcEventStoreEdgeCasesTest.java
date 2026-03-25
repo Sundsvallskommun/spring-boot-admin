@@ -147,6 +147,38 @@ class JdbcEventStoreEdgeCasesTest {
 			// Verify the store was refreshed
 			verify(mockPersistenceStore).loadByInstanceId(instanceId);
 		}
+
+		@Test
+		void conflictResolutionSucceedsAfterRefreshWithFewerEvents() {
+			// Store starts with two events (version 1 and 2)
+			final var instanceId = InstanceId.of(UUID.randomUUID().toString());
+			final var existingEvent1 = createRegisteredEvent(instanceId, 1L);
+			final var existingEvent2 = createStatusChangedEvent(instanceId, StatusInfo.ofUp(), 2L);
+			when(mockPersistenceStore.loadAll()).thenReturn(List.of(existingEvent1, existingEvent2));
+
+			final var store = new JdbcEventStore(100, mockPersistenceStore);
+
+			// DB only has v1 (v2 wasn't persisted yet — e.g. async persistence lagged behind)
+			when(mockPersistenceStore.loadByInstanceId(instanceId))
+				.thenReturn(List.of(existingEvent1));
+
+			// Try to append v2 again — conflicts because cache already has v2
+			// After refresh from DB (only v1), cache is reset to v1, so retry with v2 succeeds
+			final var retryableEvent = createStatusChangedEvent(instanceId, StatusInfo.ofUp(), 2L);
+			StepVerifier.create(store.append(List.of(retryableEvent)))
+				.verifyComplete();
+
+			// Verify the store was refreshed and the retry persisted the event
+			verify(mockPersistenceStore).loadByInstanceId(instanceId);
+			await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> {
+				verify(mockPersistenceStore).saveBatch(List.of(retryableEvent));
+			});
+
+			// Cache should now have both events
+			StepVerifier.create(store.find(instanceId).collectList())
+				.assertNext(events -> assertThat(events).hasSize(2))
+				.verifyComplete();
+		}
 	}
 
 	@Nested
