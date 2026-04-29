@@ -8,7 +8,6 @@ import java.util.List;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,8 +22,13 @@ public class EventPersistenceStore {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(EventPersistenceStore.class);
 
+	/**
+	 * INSERT IGNORE makes a row that violates {@code uk_instance_version} a silent no-op at the DB level rather
+	 * than raising a duplicate-key error. Both SBA replicas observe the same Hazelcast event stream and would
+	 * otherwise both insert the same row, producing noisy JDBC warnings.
+	 */
 	private static final String INSERT_SQL = """
-		INSERT INTO event (instance_id, event_type, version, timestamp, event_json)
+		INSERT IGNORE INTO event (instance_id, event_type, version, timestamp, event_json)
 		VALUES (?, ?, ?, ?, ?)
 		""";
 
@@ -57,39 +61,19 @@ public class EventPersistenceStore {
 		this.serializer = serializer;
 	}
 
-	/**
-	 * Save events to the audit table. Duplicates (same instance_id + version) are silently ignored — both SBA
-	 * replicas observe the same Hazelcast event stream and would otherwise insert the same row twice.
-	 */
 	public void saveBatch(@NonNull final List<InstanceEvent> events) {
 		if (events.isEmpty()) {
 			return;
 		}
 
-		try {
-			jdbc.batchUpdate(INSERT_SQL, events, events.size(), (ps, event) -> {
-				ps.setString(1, event.getInstance().getValue());
-				ps.setString(2, event.getClass().getSimpleName());
-				ps.setLong(3, event.getVersion());
-				ps.setTimestamp(4, Timestamp.from(event.getTimestamp()));
-				ps.setString(5, serializer.serialize(event));
-			});
-			LOGGER.debug("Persisted {} audit events", events.size());
-		} catch (final DuplicateKeyException e) {
-			LOGGER.debug("Batch had duplicates, falling back to individual inserts");
-			for (final var event : events) {
-				try {
-					jdbc.update(INSERT_SQL,
-						event.getInstance().getValue(),
-						event.getClass().getSimpleName(),
-						event.getVersion(),
-						Timestamp.from(event.getTimestamp()),
-						serializer.serialize(event));
-				} catch (final DuplicateKeyException _) {
-					// Already persisted by the other replica
-				}
-			}
-		}
+		jdbc.batchUpdate(INSERT_SQL, events, events.size(), (ps, event) -> {
+			ps.setString(1, event.getInstance().getValue());
+			ps.setString(2, event.getClass().getSimpleName());
+			ps.setLong(3, event.getVersion());
+			ps.setTimestamp(4, Timestamp.from(event.getTimestamp()));
+			ps.setString(5, serializer.serialize(event));
+		});
+		LOGGER.debug("Persisted {} audit events", events.size());
 	}
 
 	public int deleteOlderThan(@NonNull final Instant cutoff) {

@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DuplicateKeyException;
 
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -53,7 +52,7 @@ class AuditEventListenerTest {
 	void swallowsPersistenceErrorsToKeepSubscriptionAlive() {
 		final var eventStore = new InMemoryEventStore();
 		final var persistenceStore = mock(EventPersistenceStore.class);
-		doThrow(new DuplicateKeyException("dup")).when(persistenceStore).saveBatch(anyList());
+		doThrow(new RuntimeException("transient db failure")).when(persistenceStore).saveBatch(anyList());
 
 		final var listener = new AuditEventListener(eventStore, persistenceStore);
 		try {

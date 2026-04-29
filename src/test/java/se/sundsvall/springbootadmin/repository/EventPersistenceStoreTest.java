@@ -52,7 +52,7 @@ class EventPersistenceStoreTest {
 	}
 
 	@Test
-	void saveBatchSwallowsDuplicateKey() {
+	void saveBatchIgnoresDuplicates() {
 		final var id = UUID.randomUUID().toString();
 		final var event = registeredEvent(id, "service-1", 1L);
 
