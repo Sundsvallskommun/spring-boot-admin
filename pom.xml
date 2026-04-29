@@ -42,7 +42,12 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-kubernetes-client-all</artifactId>
 		</dependency>
-		<!-- JPA for MapStore persistence -->
+		<!-- Hazelcast for clustered SBA state (shared event store across replicas).
+				5.0+ ships Kubernetes member discovery built-in — no extra dependency needed. -->
+		<dependency>
+			<groupId>com.hazelcast</groupId>
+			<artifactId>hazelcast</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jdbc</artifactId>

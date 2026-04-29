@@ -5,24 +5,18 @@ import de.codecentric.boot.admin.server.domain.values.InstanceId;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import se.sundsvall.dept44.util.jacoco.ExcludeFromJacocoGeneratedCoverageReport;
 
 /**
- * Handles database operations for InstanceEvent persistence.
+ * Write-only persistence for the SBA event audit log.
  * <p>
- * Uses JdbcTemplate rather than JPA/Hibernate because the persisted domain objects
- * ({@link InstanceEvent}, {@link InstanceId}) are Spring Boot Admin library types that
- * cannot be annotated as JPA entities. Events are stored as serialized JSON blobs,
- * which removes any benefit from object-relational mapping. The retention queries
- * (e.g. delete excess events per instance with subquery/LIMIT) would require native
- * SQL in a Spring Data repository regardless, making JdbcTemplate the simpler choice.
+ * Uses JdbcTemplate rather than JPA/Hibernate because {@link InstanceEvent} and {@link InstanceId} are SBA library
+ * types that cannot be annotated as JPA entities. Events are stored as JSON blobs, so ORM provides no benefit.
  */
 @Service
 public class EventPersistenceStore {
@@ -32,14 +26,6 @@ public class EventPersistenceStore {
 	private static final String INSERT_SQL = """
 		INSERT INTO event (instance_id, event_type, version, timestamp, event_json)
 		VALUES (?, ?, ?, ?, ?)
-		""";
-
-	private static final String SELECT_ALL_SQL = """
-		SELECT event_json FROM event ORDER BY instance_id, version ASC
-		""";
-
-	private static final String SELECT_BY_INSTANCE_SQL = """
-		SELECT event_json FROM event WHERE instance_id = ? ORDER BY version ASC
 		""";
 
 	private static final String DELETE_OLDER_THAN_SQL = """
@@ -59,23 +45,6 @@ public class EventPersistenceStore {
 		)
 		""";
 
-	private static final String DELETE_OFFLINE_INSTANCES_SQL = """
-		DELETE FROM event WHERE instance_id IN (
-		    SELECT instance_id FROM (
-		        SELECT e.instance_id
-		        FROM event e
-		        INNER JOIN (
-		            SELECT instance_id, MAX(timestamp) AS max_ts
-		            FROM event
-		            GROUP BY instance_id
-		        ) latest ON e.instance_id = latest.instance_id AND e.timestamp = latest.max_ts
-		        WHERE e.event_type = 'InstanceStatusChangedEvent'
-		        AND e.event_json LIKE '%"OFFLINE"%'
-		        AND e.timestamp < ?
-		    ) AS stale
-		)
-		""";
-
 	private static final String SELECT_DISTINCT_INSTANCE_IDS_SQL = """
 		SELECT DISTINCT instance_id FROM event
 		""";
@@ -89,33 +58,8 @@ public class EventPersistenceStore {
 	}
 
 	/**
-	 * Save a single event to the database.
-	 *
-	 * @param event the event to persist
-	 */
-	public void save(@NonNull final InstanceEvent event) {
-		final var json = serializer.serialize(event);
-		final var eventType = event.getClass().getSimpleName();
-
-		jdbc.update(INSERT_SQL,
-			event.getInstance().getValue(),
-			eventType,
-			event.getVersion(),
-			Timestamp.from(event.getTimestamp()),
-			json);
-
-		LOGGER.debug("Persisted event: {} for instance: {}", eventType, event.getInstance());
-	}
-
-	/**
-	 * Save multiple events in a batch.
-	 * <p>
-	 * Handles duplicate key exceptions gracefully - if another pod has already persisted
-	 * an event with the same (instance_id, version), we skip it since the event was
-	 * already processed. This supports rolling restarts where multiple pods may receive
-	 * the same events.
-	 *
-	 * @param events the events to persist
+	 * Save events to the audit table. Duplicates (same instance_id + version) are silently ignored — both SBA
+	 * replicas observe the same Hazelcast event stream and would otherwise insert the same row twice.
 	 */
 	public void saveBatch(@NonNull final List<InstanceEvent> events) {
 		if (events.isEmpty()) {
@@ -124,128 +68,47 @@ public class EventPersistenceStore {
 
 		try {
 			jdbc.batchUpdate(INSERT_SQL, events, events.size(), (ps, event) -> {
-				final var json = serializer.serialize(event);
-				final var eventType = event.getClass().getSimpleName();
 				ps.setString(1, event.getInstance().getValue());
-				ps.setString(2, eventType);
+				ps.setString(2, event.getClass().getSimpleName());
 				ps.setLong(3, event.getVersion());
 				ps.setTimestamp(4, Timestamp.from(event.getTimestamp()));
-				ps.setString(5, json);
+				ps.setString(5, serializer.serialize(event));
 			});
-			LOGGER.debug("Batch persisted {} events", events.size());
+			LOGGER.debug("Persisted {} audit events", events.size());
 		} catch (final DuplicateKeyException e) {
-			LOGGER.warn("Batch insert had duplicates, falling back to individual inserts: {}", e.getMessage());
+			LOGGER.debug("Batch had duplicates, falling back to individual inserts");
 			for (final var event : events) {
 				try {
-					save(event);
+					jdbc.update(INSERT_SQL,
+						event.getInstance().getValue(),
+						event.getClass().getSimpleName(),
+						event.getVersion(),
+						Timestamp.from(event.getTimestamp()),
+						serializer.serialize(event));
 				} catch (final DuplicateKeyException _) {
-					// Already persisted by another pod
+					// Already persisted by the other replica
 				}
 			}
 		}
 	}
 
-	/**
-	 * Load all events from the database ordered by timestamp ascending.
-	 *
-	 * @return list of all persisted events (excludes null from failed deserializations)
-	 */
-	public List<InstanceEvent> loadAll() {
-		try {
-			final var events = jdbc.query(
-				SELECT_ALL_SQL,
-				(rs, _) -> serializer.deserialize(rs.getString("event_json")));
-
-			final var validEvents = events.stream()
-				.filter(Objects::nonNull)
-				.toList();
-
-			LOGGER.info("Loaded {} events from database", validEvents.size());
-			return validEvents;
-
-		} catch (final Exception e) {
-			LOGGER.warn("Could not load events from database (may be first run): {}", e.getMessage());
-			return List.of();
-		}
-	}
-
-	/**
-	 * Load all events for a specific instance from the database ordered by version ascending.
-	 *
-	 * @param  instanceId the instance ID to load events for
-	 * @return            list of persisted events for the instance (excludes null from failed deserializations)
-	 */
-	@ExcludeFromJacocoGeneratedCoverageReport
-	public List<InstanceEvent> loadByInstanceId(@NonNull final InstanceId instanceId) {
-		try {
-			final var events = jdbc.query(
-				SELECT_BY_INSTANCE_SQL,
-				(rs, _) -> serializer.deserialize(rs.getString("event_json")),
-				instanceId.getValue());
-
-			final var validEvents = events.stream()
-				.filter(Objects::nonNull)
-				.toList();
-
-			LOGGER.debug("Loaded {} events for instance {} from database", validEvents.size(), instanceId);
-			return validEvents;
-
-		} catch (final Exception e) {
-			LOGGER.warn("Could not load events for instance {}: {}", instanceId, e.getMessage());
-			return List.of();
-		}
-	}
-
-	/**
-	 * Delete events older than the specified cutoff time.
-	 *
-	 * @param  cutoff the cutoff time - events older than this will be deleted
-	 * @return        the number of deleted events
-	 */
 	public int deleteOlderThan(@NonNull final Instant cutoff) {
 		final var deleted = jdbc.update(DELETE_OLDER_THAN_SQL, Timestamp.from(cutoff));
 		LOGGER.info("Deleted {} events older than {}", deleted, cutoff);
 		return deleted;
 	}
 
-	/**
-	 * Delete excess events for an instance, keeping only the newest N events.
-	 *
-	 * @param  instanceId the instance ID
-	 * @param  maxEvents  the maximum number of events to keep
-	 * @return            the number of deleted events
-	 */
 	public int deleteExcessEventsForInstance(@NonNull final InstanceId instanceId, final int maxEvents) {
 		final var deleted = jdbc.update(DELETE_EXCESS_EVENTS_SQL,
 			instanceId.getValue(),
 			instanceId.getValue(),
 			maxEvents);
-
 		if (deleted > 0) {
 			LOGGER.info("Deleted {} excess events for instance: {}", deleted, instanceId);
 		}
 		return deleted;
 	}
 
-	/**
-	 * Delete all events for instances whose most recent event is an OFFLINE status change
-	 * older than the specified cutoff. This evicts stale instances that have been offline
-	 * for an extended period, stopping SBA from continuously polling dead endpoints.
-	 *
-	 * @param  cutoff the cutoff time - instances offline since before this will be evicted
-	 * @return        the number of deleted events
-	 */
-	public int deleteOfflineInstancesOlderThan(@NonNull final Instant cutoff) {
-		final var deleted = jdbc.update(DELETE_OFFLINE_INSTANCES_SQL, Timestamp.from(cutoff));
-		LOGGER.info("Deleted {} events for instances OFFLINE since before {}", deleted, cutoff);
-		return deleted;
-	}
-
-	/**
-	 * Get all distinct instance IDs that have events.
-	 *
-	 * @return list of distinct instance IDs
-	 */
 	public List<InstanceId> getDistinctInstanceIds() {
 		return jdbc.query(SELECT_DISTINCT_INSTANCE_IDS_SQL,
 			(rs, _) -> InstanceId.of(rs.getString("instance_id")));

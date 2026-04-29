@@ -25,11 +25,13 @@ spring:
         # Lifetime of status. The status won't be updated as long the last status isn't expired (in ms).
         status-lifetime: 30000
       journal:
-        publish-on-startup: true
         retention-days: 30
         max-events-per-instance: 1000
-        offline-eviction-days: 7
       discovery:
+        # When a service vanishes from K8s discovery, deregister it from SBA.
+        # Combined with K8s being the source of truth, this fixes the "stale instance" problem
+        # where SBA kept polling pods that had been deleted from the cluster.
+        remove-services-without-instance: true
         # Exclude SBA from monitoring itself — if SBA is down, it can't display its own health anyway,
         # and self-discovery causes version conflicts during rolling restarts in OpenShift.
         ignored-services:
@@ -53,6 +55,12 @@ spring:
         all-namespaces: true
         service-labels:
           spring-boot: true
+  hazelcast:
+    kubernetes:
+      # Headless K8s service that fronts the SBA pods. When unset, Hazelcast runs as a single-member cluster
+      # (used in local dev / tests). In Kubernetes deployments, point this at the SBA service.
+      service-name: ${config.hazelcast.kubernetes.service-name:}
+      namespace: ${config.hazelcast.kubernetes.namespace:}
 logging:
   level:
     # Debug logging for notifiers to diagnose Slack integration

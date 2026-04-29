@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.springbootadmin.configuration.EventJournalProperties;
 import se.sundsvall.springbootadmin.repository.EventPersistenceStore;
-import se.sundsvall.springbootadmin.repository.JdbcEventStore;
 
 /**
- * Service responsible for cleaning up old events based on retention policy.
+ * Periodic cleanup of the audit log. Trims events older than the retention period and caps the number of events
+ * kept per instance so the table cannot grow unbounded for a flapping service.
+ * <p>
+ * Cluster-coordinated via {@code @Dept44Scheduled} (ShedLock), so only one SBA replica performs the cleanup.
  */
 @Service
 public class EventRetentionService {
@@ -20,51 +22,32 @@ public class EventRetentionService {
 
 	private final EventPersistenceStore persistenceStore;
 	private final EventJournalProperties properties;
-	private final JdbcEventStore eventStore;
 
-	public EventRetentionService(final EventPersistenceStore persistenceStore, final EventJournalProperties properties, final JdbcEventStore eventStore) {
+	public EventRetentionService(final EventPersistenceStore persistenceStore, final EventJournalProperties properties) {
 		this.persistenceStore = persistenceStore;
 		this.properties = properties;
-		this.eventStore = eventStore;
 	}
 
-	/**
-	 * Scheduled cleanup job that removes old events and enforces max events per instance.
-	 */
 	@Dept44Scheduled(
 		cron = "${scheduler.journal.retention.cron.expression}",
 		name = "${scheduler.journal.retention.name}",
 		lockAtMostFor = "${scheduler.journal.retention.lock-at-most-for}",
 		maximumExecutionTime = "${scheduler.journal.retention.maximum-execution-time}")
 	public void cleanup() {
-		LOGGER.info("Starting event retention cleanup");
+		LOGGER.info("Starting audit log retention cleanup");
 
-		// Evict instances that have been OFFLINE longer than the eviction period
-		final var offlineCutoff = Instant.now().minus(properties.offlineEvictionDays(), ChronoUnit.DAYS);
-		final var evictedOffline = persistenceStore.deleteOfflineInstancesOlderThan(offlineCutoff);
-		LOGGER.info("Evicted {} events for instances OFFLINE longer than {} days", evictedOffline, properties.offlineEvictionDays());
-
-		// Delete events older than retention period
 		final var cutoff = Instant.now().minus(properties.retentionDays(), ChronoUnit.DAYS);
-		final var deletedByAge = persistenceStore.deleteOlderThan(cutoff);
-		LOGGER.info("Deleted {} events older than {} days", deletedByAge, properties.retentionDays());
+		persistenceStore.deleteOlderThan(cutoff);
 
-		// Delete excess events per instance
 		final var instanceIds = persistenceStore.getDistinctInstanceIds();
 		var totalDeletedByCount = 0;
-
 		for (final var instanceId : instanceIds) {
-			final var deleted = persistenceStore.deleteExcessEventsForInstance(instanceId, properties.maxEventsPerInstance());
-			totalDeletedByCount += deleted;
+			totalDeletedByCount += persistenceStore.deleteExcessEventsForInstance(instanceId, properties.maxEventsPerInstance());
 		}
-
 		if (totalDeletedByCount > 0) {
 			LOGGER.info("Deleted {} excess events (max {} per instance)", totalDeletedByCount, properties.maxEventsPerInstance());
 		}
 
-		// Reload in-memory cache to evict deleted events
-		eventStore.reloadFromDatabase();
-
-		LOGGER.info("Event retention cleanup completed");
+		LOGGER.info("Audit log retention cleanup completed");
 	}
 }
