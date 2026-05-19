@@ -5,7 +5,6 @@ import com.hazelcast.config.JoinConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -22,7 +21,6 @@ import org.springframework.context.annotation.Configuration;
  * runs as a single-member cluster on localhost.
  */
 @Configuration
-@EnableConfigurationProperties(EventJournalProperties.class)
 public class HazelcastConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(HazelcastConfig.class);

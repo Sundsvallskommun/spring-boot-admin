@@ -4,14 +4,12 @@ This is a Spring Boot Admin Server application for Sundsvalls kommun that monito
 
 **Tech Stack:**
 - Java 25
-- Spring Boot (via dept44-service-parent 7.0.0)
+- Spring Boot (via dept44-service-parent)
 - Spring Boot Admin Server (de.codecentric)
 - Spring Cloud Kubernetes Client
 - Spring Security
+- Hazelcast (shared in-memory event store across SBA replicas)
 - Maven build system
-- MariaDB for persistence
-- Flyway for database migrations
-- Testcontainers for integration testing
 
 ## Build and Test Commands
 
@@ -44,41 +42,77 @@ mvn spring-boot:run
 - Services register themselves automatically when discovered
 - **SBA excludes itself** from monitoring via `spring.boot.admin.discovery.ignored-services` to prevent version conflicts during rolling restarts
 
-### Instance Persistence Architecture
+### Instance State (Hazelcast)
 
-Instance state is reconstructed from persisted events using an event-sourcing approach:
+Instance state lives in memory only — there is no database. Two SBA replicas share state via a Hazelcast cluster:
 
-- Uses SBA's `EventsourcingInstanceRepository` which reconstructs instance state by replaying events from the `JdbcEventStore`
-- `JdbcEventStore` loads all events from the database on startup
-- `PersistenceConfig` publishes stored events via an `ApplicationReadyEvent` listener to trigger status checks for known instances
-- No separate `instances` table is needed — instance state is derived entirely from events
-- Database migrations managed by Flyway in `src/main/resources/db/migration/`
+- `HazelcastConfig` produces a `com.hazelcast.config.Config` bean
+- SBA's `AdminServerHazelcastAutoConfiguration` picks that up and backs its event store with a Hazelcast `IMap`, so both pods see the same instance list and event stream
+- In Kubernetes, members discover each other via the headless service named by `spring.hazelcast.kubernetes.service-name`. When that property is unset (local dev / tests), Hazelcast runs as a single-member cluster on localhost
+- State is rebuilt on a full cluster restart by SBA re-discovering instances from Kubernetes — there is no on-disk journal
 
-### Event Journal Architecture
+### Hazelcast Setup
 
-The application persists instance events (health changes, registrations, etc.) for audit and recovery:
+**How `HazelcastConfig` works**
 
-**Components:**
-- `JdbcEventStore` - Extends SBA's `ConcurrentMapEventStore` with database persistence; loads events on startup, persists on append
-- `EventPersistenceStore` - JDBC operations for batch insert and cleanup queries
-- `EventSerializer` - JSON serialization for `InstanceEvent` objects
-- `EventRetentionService` - Scheduled cleanup: deletes events older than retention period (default 30 days) and keeps max events per instance (default 1000)
+`HazelcastConfig.hazelcastClusterConfig(...)` reads three values:
 
-**Rolling Restart Handling:**
-- The `uk_instance_version` unique constraint prevents duplicate events when multiple pods receive the same event
-- `saveBatch()` catches `DuplicateKeyException` and ignores already-persisted events
-- `handleVersionConflict()` refreshes the in-memory cache from the database when version conflicts occur
+- `spring.application.name` — used as the Hazelcast cluster name (so unrelated Hazelcast clusters in the same network can't accidentally merge)
+- `spring.hazelcast.kubernetes.service-name` — when set, switches Hazelcast into Kubernetes discovery mode; when blank, falls back to a single-member local cluster
+- `spring.hazelcast.kubernetes.namespace` — optional; when blank, Hazelcast looks in the pod's own namespace (read from the mounted service-account token)
 
-**Configuration (`EventJournalProperties`):**
+Multicast is always disabled. In local mode (blank service-name), TCP/AWS/Kubernetes joiners are also disabled — the member only sees itself, which is what tests and local dev want.
 
-```yaml
-spring.boot.admin.journal:
-  retention-days: 30           # Days to keep events (default: 30)
-  max-events-per-instance: 1000  # Max events per instance (default: 1000)
+**Mode 1: single-member local cluster** (default in tests / dev)
 
-scheduler.journal.retention:
-  cron.expression: "0 0 2 * * *"  # Daily cleanup at 02:00
-```
+Triggered when `config.hazelcast.kubernetes.service-name` is unset (empty after the `${…:}` default in `application.yml`). The pod doesn't try to find peers. SBA's event store still goes through Hazelcast, but the IMap has exactly one owner.
+
+**Mode 2: clustered in Kubernetes**
+
+Triggered when `config.hazelcast.kubernetes.service-name` is set in the overlay. Hazelcast uses its built-in Kubernetes discovery (Kubernetes API mode by default) to find peer pods and form a TCP mesh on port 5701.
+
+For two SBA pods to actually form one cluster, three things have to be in place:
+
+1. **A headless Service that selects the SBA pods.** A normal ClusterIP service load-balances to one random pod, which is useless for cluster formation — each member needs to reach every *other* member directly. `clusterIP: None` makes K8s return all backing pod IPs.
+
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: spring-boot-admin-hz
+     namespace: <ns>
+   spec:
+     clusterIP: None
+     publishNotReadyAddresses: true   # let members find each other before readiness probe passes
+     selector:
+       app: spring-boot-admin
+     ports:
+       - name: hazelcast
+         port: 5701
+         targetPort: 5701
+   ```
+
+   Then in the deployment overlay:
+
+   ```yaml
+   config.hazelcast.kubernetes.service-name: spring-boot-admin-hz
+   config.hazelcast.kubernetes.namespace: <ns>   # optional
+   ```
+
+2. **RBAC for the pod's ServiceAccount.** The Hazelcast K8s plugin calls the Kubernetes API to list endpoints for the named service. Without permissions you'll see `Forbidden` in the logs and each pod will form a one-member cluster of its own.
+
+   ```yaml
+   rules:
+     - apiGroups: [""]
+       resources: ["endpoints", "pods"]
+       verbs: ["get", "list"]
+   ```
+
+3. **Pod-to-pod network on TCP 5701.** If the namespace has a default-deny `NetworkPolicy`, allow SBA pods to talk to each other on 5701. Without it, discovery resolves but the TCP join silently fails and you end up with two split-brain single-member clusters.
+
+**Verifying the cluster formed**
+
+Watch the startup log of either pod — successful join logs `Members {size:2, ver:2}` with both member addresses. If you see `Members {size:1}` on both pods, one of the three requirements above is missing.
 
 ### Security Architecture
 
@@ -96,44 +130,32 @@ scheduler.journal.retention:
 
 - `application.yml` - Base configuration with property placeholders
 - `application-default.yml` - Local development profile
-- Tests use `@ActiveProfiles("junit")` with Testcontainers providing the database
+- `application-junit.yml` - Test profile, activated by `@ActiveProfiles("junit")`
 - Configuration uses custom properties under `config.*` namespace that map to Spring Boot Admin properties
 
 ### Package Structure
 
 ```
 se.sundsvall.springbootadmin/
-├── Application.java                 # Main entry point with @EnableAdminServer, @EnableDiscoveryClient, @EnableScheduling
-├── configuration/
-│   ├── AdminUser.java               # Configuration properties record for admin credentials
-│   ├── ApplicationSecurityConfiguration.java  # Security setup with conditional beans
-│   ├── EventJournalProperties.java  # Configuration for event retention
-│   └── PersistenceConfig.java       # Wires persistence components together, triggers event publishing on startup
-├── repository/
-│   ├── EventPersistenceStore.java   # Event database operations with JdbcTemplate
-│   ├── EventSerializationException.java  # Exception for serialization failures
-│   ├── EventSerializer.java         # JSON serialization for events using Jackson
-│   └── JdbcEventStore.java          # JDBC-backed event store extending ConcurrentMapEventStore
-└── service/
-    └── EventRetentionService.java   # Scheduled cleanup of old events (@Dept44Scheduled)
+├── Application.java                 # Main entry point with @EnableAdminServer, @EnableDiscoveryClient
+└── configuration/
+    ├── AdminUser.java                            # @ConfigurationProperties for admin credentials
+    ├── ApplicationSecurityConfiguration.java     # Security setup with conditional beans
+    └── HazelcastConfig.java                      # Hazelcast Config bean (K8s discovery / local mode)
 ```
 
 ### Dependency Management
 
 - Parent POM: `dept44-service-parent` (Sundsvalls kommun's shared parent)
 - Excludes standard dept44 configurations: `WebConfiguration`, `OpenApiConfiguration`, `SecurityConfiguration`
-- Uses dept44 starter for testing and scheduling (`@Dept44Scheduled`)
-- Hazelcast included for potential future distributed event storage
+- Hazelcast is the only persistence-ish dependency — cluster-shared in-memory state, no on-disk store
 
 ## Testing Guidelines
 
 - Test profile: Use `@ActiveProfiles("junit")`
-- Use `@SpringBootTest` for integration tests
+- Use `@SpringBootTest` for integration tests that need the full context
 - Use `@Nested` classes to group related test scenarios (e.g., SecurityEnabled vs SecurityDisabled)
 - Test both security enabled and disabled states using `properties` parameter in `@SpringBootTest`
-- Integration tests use **Testcontainers** with MariaDB (auto-configured via JDBC URL)
-- Use `@Sql` annotations to set up/clean database state between tests
-- Use `reactor-test` (`StepVerifier`) for testing reactive streams in repository tests
 
 ## Status
 
