@@ -98,7 +98,6 @@ For two SBA pods to actually form one cluster, three things have to be in place:
    config.hazelcast.kubernetes.service-name: spring-boot-admin-hz
    config.hazelcast.kubernetes.namespace: <ns>   # optional
    ```
-
 2. **RBAC for the pod's ServiceAccount.** The Hazelcast K8s plugin calls the Kubernetes API to list endpoints for the named service. Without permissions you'll see `Forbidden` in the logs and each pod will form a one-member cluster of its own.
 
    ```yaml
@@ -107,7 +106,6 @@ For two SBA pods to actually form one cluster, three things have to be in place:
        resources: ["endpoints", "pods"]
        verbs: ["get", "list"]
    ```
-
 3. **Pod-to-pod network on TCP 5701.** If the namespace has a default-deny `NetworkPolicy`, allow SBA pods to talk to each other on 5701. Without it, discovery resolves but the TCP join silently fails and you end up with two split-brain single-member clusters.
 
 **Verifying the cluster formed**
