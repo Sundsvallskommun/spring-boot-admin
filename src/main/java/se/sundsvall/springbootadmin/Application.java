@@ -2,6 +2,7 @@ package se.sundsvall.springbootadmin;
 
 import de.codecentric.boot.admin.server.config.EnableAdminServer;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import se.sundsvall.dept44.ServiceApplication;
 import se.sundsvall.dept44.configuration.OpenApiConfiguration;
 import se.sundsvall.dept44.configuration.SecurityConfiguration;
@@ -15,11 +16,9 @@ import static org.springframework.boot.SpringApplication.run;
 })
 @EnableAdminServer
 @EnableDiscoveryClient
+@EnableScheduling // Required by the Spring Cloud Kubernetes catalog watcher — without it SBA never re-discovers after startup
 @ExcludeFromJacocoGeneratedCoverageReport
 public class Application {
-
-	private Application() {}
-
 	static void main(String... args) {
 		run(Application.class, args);
 	}
