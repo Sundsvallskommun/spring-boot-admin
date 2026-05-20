@@ -22,6 +22,12 @@ spring:
         status-interval: 30000
         # Lifetime of status. The status won't be updated as long the last status isn't expired (in ms).
         status-lifetime: 30000
+      discovery:
+        # Exclude SBA from monitoring itself. K8s discovery would otherwise pick up SBA's own
+        # Service (if it carries the spring-boot: true label) and register it as an instance.
+        # The value must match the SBA Kubernetes Service name, not the application name.
+        ignored-services:
+          - spring-boot-admin
       notify:
         # Slack integration
         slack:
