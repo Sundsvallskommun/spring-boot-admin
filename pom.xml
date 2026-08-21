@@ -13,16 +13,7 @@
 	<version>1.0</version>
 	<name>spring-boot-admin</name>
 	<description>Spring Boot Admin</description>
-	<properties>
-		<!--
-			Pin Spring Boot Admin to 4.1.2. 4.1.1 (pulled in by dept44 8.0.8) has an InMemoryEventStore
-			memory leak: it detects status changes with a FULL equality check on the instance, so the
-			ever-changing info/details payload mints a new event on every poll, exhausting the heap
-			(codecentric/spring-boot-admin#5476, fixed by #5483). 4.1.2 defaults status-change detection
-			back to STATUS_ONLY. Remove this override once dept44 manages 4.1.2 or newer.
-		-->
-		<spring-boot-admin.version>4.1.2</spring-boot-admin.version>
-	</properties>
+	<properties />
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
